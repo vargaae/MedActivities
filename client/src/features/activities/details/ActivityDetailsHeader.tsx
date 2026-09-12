@@ -7,7 +7,7 @@ type Props = {
 }
 
 export default function ActivityDetailsHeader({activity}: Props) {
-    const isCancelled = false;
+    const isCancelled = activity.isCancelled;
     const isHost = true;
     const isGoing = true;
     const loading = false;
@@ -45,7 +45,7 @@ export default function ActivityDetailsHeader({activity}: Props) {
                     <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{activity.title}</Typography>
                     <Typography variant="subtitle1">{formatDate(activity.date)}</Typography>
                     <Typography variant="subtitle2">
-                        Hosted by <Link to={`/profiles/username`} style={{ color: 'white', fontWeight: 'bold' }}>Bob</Link>
+                        Kezelőorvos: {activity.practitioners?.map(p => p.name).join(', ') || 'Nincs hozzárendelve'}
                     </Typography>
                 </Box>
 

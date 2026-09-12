@@ -1,3 +1,4 @@
+import ActivityPeople from '../details/ActivityPeople';
 import { Box, Button, Paper, Typography } from "@mui/material";
 import { useActivities } from "../../../lib/hooks/useActivities";
 import { useNavigate, useParams } from "react-router";
@@ -61,6 +62,7 @@ export default function ActivityForm() {
             <Typography variant="h5" gutterBottom color="primary">
                 {activity ? 'Edit Activity' : 'Create Activity'}
             </Typography>
+            {activity && <ActivityPeople activity={activity} />}
             <Box component='form' onSubmit={handleSubmit(onSubmit)} display='flex' flexDirection='column' gap={3}>
                 <TextInput label='Title' control={control} name='title' />
                 <TextInput label='Description' name='description' control={control} multiline rows={3} />

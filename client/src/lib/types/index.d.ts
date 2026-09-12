@@ -1,3 +1,5 @@
+type ActivityPerson = { id: string; name: string };
+
 type Activity = {
     id: string
     title: string
@@ -9,6 +11,9 @@ type Activity = {
     venue: string
     latitude: number
     longitude: number
+    status: string
+    patients: ActivityPerson[]
+    practitioners: ActivityPerson[]
 }
 
 type LocationIQSuggestion = {

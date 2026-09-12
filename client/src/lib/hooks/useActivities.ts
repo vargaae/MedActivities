@@ -6,10 +6,10 @@ export const useActivities = (id?: string) => {
     const queryClient = useQueryClient();
     const location = useLocation();
 
-    const { isPending, data: activities } = useQuery({
+    const { isLoading: isPending, data: activities } = useQuery({
         queryKey: ['activities'],
-        queryFn: async () => {
-            const response = await agent.get<Activity[]>('/activities');
+        queryFn: async ({ signal }) => {
+            const response = await agent.get<Activity[]>('/activities', { signal });
             return response.data;
         },
         enabled: !id && location.pathname === '/activities'
@@ -17,8 +17,8 @@ export const useActivities = (id?: string) => {
 
     const { isLoading: isLoadingActivity, data: activity } = useQuery<Activity>({
         queryKey: ['activities', id],
-        queryFn: async () => {
-            const response = await agent.get<Activity>(`/activities/${id}`);
+        queryFn: async ({ signal }) => {
+            const response = await agent.get<Activity>(`/activities/${id}`, { signal });
             return response.data;
         },
         enabled: !!id
@@ -26,7 +26,7 @@ export const useActivities = (id?: string) => {
 
     const updateActivity = useMutation({
         mutationFn: async (activity: Activity) => {
-            await agent.put('/activities', activity);
+            await agent.put('/activities', activityWritePayload(activity));
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({
@@ -37,7 +37,7 @@ export const useActivities = (id?: string) => {
 
     const createActivity = useMutation({
         mutationFn: async (activity: Activity) => {
-            const response = await agent.post('/activities', activity);
+            const response = await agent.post('/activities', activityWritePayload(activity));
             return response.data;
         },
         onSuccess: async () => {
@@ -67,4 +67,12 @@ export const useActivities = (id?: string) => {
         activity,
         isLoadingActivity
     }
+}
+// A névlisták válaszadatok: ne küldjük vissza őket entitásként mentéskor.
+function activityWritePayload(a: Activity) {
+    return {
+        id: a.id, title: a.title, date: a.date, description: a.description,
+        category: a.category, city: a.city, venue: a.venue,
+        latitude: a.latitude, longitude: a.longitude, isCancelled: a.isCancelled ?? false
+    };
 }
