@@ -1,26 +1,14 @@
-import { Box, Container, CssBaseline } from "@mui/material";
-import NavBar from "./NavBar";
-import { Outlet, ScrollRestoration, useLocation } from "react-router";
-import HomePage from "../../features/home/HomePage";
+import { Box, Container, CssBaseline } from '@mui/material';
+import { Outlet, ScrollRestoration, useLocation } from 'react-router';
+import NavBar from './NavBar';
 
-function App() {
-  const location = useLocation();
-  return (
-    <Box sx={{ bgcolor: "#eeeeee", minHeight: "100vh" }}>
-      <ScrollRestoration />
-      <CssBaseline />
-      {location.pathname === "/" ? (
-        <HomePage />
-      ) : (
-        <>
-          <NavBar />
-          <Container maxWidth="xl" sx={{ pt: 5 }}>
-            <Outlet />
-          </Container>
-        </>
-      )}
-    </Box>
-  );
+export default function App() {
+    const home = useLocation().pathname === '/';
+    return <Box className="eu-app">
+        <ScrollRestoration /><CssBaseline />
+        <a className="eu-skip" href="#main-content">Ugrás a tartalomra</a>
+        <NavBar />
+        {home ? <main id="main-content"><Outlet /></main> :
+            <Container component="main" id="main-content" maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}><Outlet /></Container>}
+    </Box>;
 }
-
-export default App;

@@ -20,6 +20,10 @@ public class ActivityDto
     public string Venue { get; set; } = "";
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public bool CanDelete { get; set; }
+    public bool CanEditFields { get; set; }
+    public bool CanEditAssignments { get; set; }
+    public bool IsAppointment { get; set; }
     public string Status { get; set; } = "";
     public List<ActivityPersonDto> Patients { get; set; } = [];
     public List<ActivityPersonDto> Practitioners { get; set; } = [];

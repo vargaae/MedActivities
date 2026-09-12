@@ -11,6 +11,9 @@ type Activity = {
     venue: string
     latitude: number
     longitude: number
+    canEditFields: boolean
+    canEditAssignments: boolean
+    isAppointment: boolean
     status: string
     patients: ActivityPerson[]
     practitioners: ActivityPerson[]
@@ -47,3 +50,16 @@ type LocationIQAddress = {
     country_code: string
     neighbourhood?: string
 }
+type ActivityWrite = {
+    id?: string;
+    title: string;
+    date: Date | string;
+    description: string;
+    category: string;
+    city: string;
+    venue: string;
+    latitude: number;
+    longitude: number;
+    patientId?: string;
+    practitionerIds?: string[];
+};

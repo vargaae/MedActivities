@@ -1,3 +1,4 @@
+import MedBookingPage from '../../features/med/MedBookingPage';
 import { createBrowserRouter, Navigate } from "react-router";
 import App from "../layout/App";
 import ActivityDashboard from "../../features/activities/dashboard/ActivityDashboard";
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
         element: <App />,
         children: [
             { path: '', element: <HomePage /> },
+            { path: 'booking', element: <MedBookingPage /> },
             { path: 'activities', element: <ActivityDashboard /> },
             { path: 'activities/:id', element: <ActivityDetailsPage /> },
             { path: 'createActivity', element: <ActivityForm key='create' /> },

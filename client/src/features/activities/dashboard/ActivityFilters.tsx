@@ -1,69 +1,20 @@
-import { Event, FilterList } from "@mui/icons-material";
-import {
-  Box,
-  Typography,
-  MenuList,
-  MenuItem,
-  ListItemText,
-  Paper,
-} from "@mui/material";
-import "react-calendar/dist/Calendar.css";
-import Calendar from "react-calendar";
-
-export default function ActivityFilters() {
-  return (
-    <Box
-      sx={{ display: "flex", flexDirection: "column", gap: 3, borderRadius: 3 }}
-    >
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Box sx={{ width: "100%" }}>
-          <Typography
-            variant="h6"
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              mb: 1,
-              color: "primary.main",
-            }}
-          >
-            <FilterList sx={{ mr: 1 }} />
-            Filters
-          </Typography>
-          <MenuList>
-            <MenuItem>
-              <ListItemText primary="All Events" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Future Events" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="History" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Examinations" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Treatments" />
-            </MenuItem>
-          </MenuList>
-        </Box>
-      </Paper>
-
-      <Box component={Paper} sx={{ width: "100%", p: 3, borderRadius: 3 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            mb: 1,
-            color: "primary.main",
-          }}
-        >
-          <Event sx={{ mr: 1 }} />
-          Select date
-        </Typography>
-        <Calendar />
-      </Box>
-    </Box>
-  );
+import { Box, Button, MenuItem, MenuList, Paper, Typography } from '@mui/material';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
+export type ActivityFilter = 'all' | 'future' | 'history' | 'examination' | 'treatment';
+type Props = { filter: ActivityFilter; date: Date | null; onFilter: (value: ActivityFilter) => void; onDate: (value: Date | null) => void };
+const filters: { value: ActivityFilter; label: string }[] = [
+    { value: 'all', label: 'All Events' }, { value: 'future', label: 'Future Events' },
+    { value: 'history', label: 'History' }, { value: 'examination', label: 'Examinations' }, { value: 'treatment', label: 'Treatments' }
+];
+export default function ActivityFilters({ filter, date, onFilter, onDate }: Props) {
+    return <Box sx={{ display: 'grid', gap: 3 }}>
+        <Paper sx={{ p: 3, borderRadius: 3 }}><Typography variant="h6">Filters</Typography>
+            <MenuList>{filters.map(item => <MenuItem key={item.value} selected={filter === item.value} onClick={() => onFilter(item.value)}>{item.label}</MenuItem>)}</MenuList>
+        </Paper>
+        <Paper sx={{ p: 3, borderRadius: 3 }}><Typography variant="h6" sx={{ mb: 2 }}>Select date</Typography>
+            <Calendar value={date} onChange={value => onDate(value instanceof Date ? value : null)} />
+            {date && <Button onClick={() => onDate(null)}>Dátumszűrés törlése</Button>}
+        </Paper>
+    </Box>;
 }

@@ -1,3 +1,4 @@
+import { getActivityToken } from './activitySession';
 import axios from 'axios';
 import { store } from '../stores/store';
 import { toast } from 'react-toastify';
@@ -15,6 +16,8 @@ const agent = axios.create({
 
 agent.interceptors.request.use(config => {
     store.uiStore.isBusy();
+    const token = getActivityToken();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 })
 
@@ -27,6 +30,7 @@ agent.interceptors.response.use(
     async error => {
         await sleep(1000);
         store.uiStore.isIdle(); // Ensure the busy state is reset on error
+        if (!error.response) { toast.error('Az API nem érhető el.'); return Promise.reject(error); }
         const {data, status} = error.response;
         switch (status) {
             case 400:
@@ -39,8 +43,11 @@ agent.interceptors.response.use(
                 }
                 throw modalStateErrors.flat();
             } else {
-                toast.error(data);
+                toast.error(typeof data === 'string' ? data : data.message ?? data.title ?? 'Hibás kérés.');
             }
+                break;
+            case 409:
+                toast.error(data.message ?? 'Ütközés az adatokban.');
                 break;
             case 401:
                 toast.error('unauthorised');

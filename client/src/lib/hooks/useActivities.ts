@@ -1,13 +1,16 @@
+import { useSyncExternalStore } from 'react';
+import { subscribeActivitySession, getActivitySessionVersion } from '../api/activitySession';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import agent from "../api/agent";
 import { useLocation } from "react-router";
 
 export const useActivities = (id?: string) => {
     const queryClient = useQueryClient();
+    const sessionVersion = useSyncExternalStore(subscribeActivitySession, getActivitySessionVersion);
     const location = useLocation();
 
     const { isLoading: isPending, data: activities } = useQuery({
-        queryKey: ['activities'],
+        queryKey: ['activities', 'list', sessionVersion],
         queryFn: async ({ signal }) => {
             const response = await agent.get<Activity[]>('/activities', { signal });
             return response.data;
@@ -16,7 +19,7 @@ export const useActivities = (id?: string) => {
     });
 
     const { isLoading: isLoadingActivity, data: activity } = useQuery<Activity>({
-        queryKey: ['activities', id],
+        queryKey: ['activities', 'detail', id, sessionVersion],
         queryFn: async ({ signal }) => {
             const response = await agent.get<Activity>(`/activities/${id}`, { signal });
             return response.data;
@@ -25,7 +28,7 @@ export const useActivities = (id?: string) => {
     });
 
     const updateActivity = useMutation({
-        mutationFn: async (activity: Activity) => {
+        mutationFn: async (activity: ActivityWrite) => {
             await agent.put('/activities', activityWritePayload(activity));
         },
         onSuccess: async () => {
@@ -36,8 +39,8 @@ export const useActivities = (id?: string) => {
     });
 
     const createActivity = useMutation({
-        mutationFn: async (activity: Activity) => {
-            const response = await agent.post('/activities', activityWritePayload(activity));
+        mutationFn: async (activity: ActivityWrite) => {
+            const response = await agent.post<string>('/activities', activityWritePayload(activity));
             return response.data;
         },
         onSuccess: async () => {
@@ -68,11 +71,11 @@ export const useActivities = (id?: string) => {
         isLoadingActivity
     }
 }
-// A névlisták válaszadatok: ne küldjük vissza őket entitásként mentéskor.
-function activityWritePayload(a: Activity) {
+function activityWritePayload(a: ActivityWrite) {
     return {
         id: a.id, title: a.title, date: a.date, description: a.description,
         category: a.category, city: a.city, venue: a.venue,
-        latitude: a.latitude, longitude: a.longitude, isCancelled: a.isCancelled ?? false
+        latitude: a.latitude, longitude: a.longitude,
+        patientId: a.patientId, practitionerIds: a.practitionerIds
     };
 }

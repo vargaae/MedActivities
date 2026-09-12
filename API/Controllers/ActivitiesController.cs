@@ -46,7 +46,7 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         var patients=access.Staff ? db.Patients : User.IsInRole("Practitioner")
             ? access.Patients() : db.Patients.Where(p=>false);
         return Ok(new {
-            userId=access.UserId, canCreate, canAssign=access.Staff,
+            userId=access.UserId, roles=User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c=>c.Value).ToArray(), canCreate, canAssign=access.Staff,
             isPractitioner=User.IsInRole("Practitioner"), ownPractitioner=own,
             patients=await patients.OrderBy(p=>p.Name).Select(p=>new {p.Id,p.Name}).ToListAsync(ct),
             practitioners=await (access.Staff ? db.Practitioners : db.Practitioners.Where(p=>false))
