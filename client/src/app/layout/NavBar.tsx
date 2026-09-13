@@ -28,7 +28,6 @@ import {
 import { useStore } from "../../lib/hooks/useStore";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import { setActivityToken } from "../../lib/api/activitySession";
-import agent from "../../lib/api/agent";
 import AuthDialog from "../../features/home/AuthDialog";
 import "./navbar-buttons.css";
 
