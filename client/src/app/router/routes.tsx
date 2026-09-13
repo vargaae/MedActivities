@@ -1,5 +1,6 @@
 import RequireSession from '../../features/management/RequireSession';
 import PatientsPage from '../../features/management/PatientsPage';
+import HealthRecordsPage from '../../features/management/HealthRecordsPage';
 import PractitionersPage from '../../features/management/PractitionersPage';
 import UsersPage from '../../features/management/UsersPage';
 import MedBookingPage from '../../features/med/MedBookingPage';
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
         children: [
             { path: '', element: <HomePage /> },
             { path: 'booking', element: <RequireSession><MedBookingPage /></RequireSession> },
+            { path: 'health-records', element: <RequireSession><HealthRecordsPage /></RequireSession> },
             { path: 'activities', element: <RequireSession><ActivityDashboard /></RequireSession> },
             { path: 'activities/:id', element: <RequireSession><ActivityDetailsPage /></RequireSession> },
             { path: 'createActivity', element: <RequireSession><ActivityForm key='create' /></RequireSession> },

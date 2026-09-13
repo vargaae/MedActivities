@@ -11,3 +11,6 @@ public record BookingInput([Required] string PatientId, [Required] string Practi
 public record EnabledInput(bool BookingEnabled);
 public record LinkInput([Required] string UserId);
 public record RoleInput([Required] string Role, [Required] string Name);
+public record ContactInput([EmailAddress] string? Email, [MaxLength(40)] string? Phone, [MaxLength(300)] string? Address);
+public record RescheduleInput(DateOnly Date, [Range(8,19)] int Hour, [MaxLength(1000)] string? Note);
+public record AppointmentStatusInput([RegularExpression("^(Scheduled|Cancelled|Completed|NoShow)$")] string Status);

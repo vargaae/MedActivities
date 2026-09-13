@@ -5,7 +5,8 @@ import mkcert from 'vite-plugin-mkcert';
 // https://vite.dev/config/
 export default defineConfig({
   server: {
-    port: 3000
+    port: 3000,
+    proxy: { '/api': { target: 'https://localhost:5001', secure: false } }
   },
   plugins: [
     react({

@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import agent from '../../lib/api/agent';
 import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
 import ActivityLogin from '../activities/form/ActivityLogin';
+import AppointmentActions from './AppointmentActions';
 type Person = { id: string; name: string; bookingEnabled?: boolean };
 type Appointment = { id: string; startTime: string; activityId: string; status: number; patientId: string; practitionerId: string };
 export default function MedBookingPage() {
@@ -70,6 +71,7 @@ function BookingEditor({ version }: { version: number }) {
             <Typography>{a.startTime.replace('T', ' ')} – {statusLabels[a.status] ?? 'Ismeretlen állapot'}</Typography>
             <Typography>{people.data?.patients.find(p => p.id === a.patientId)?.name} · {people.data?.doctors.find(p => p.id === a.practitionerId)?.name}</Typography>
             <Button component={Link} to={`/activities/${a.activityId}`}>Esemény megnyitása</Button>
+            <AppointmentActions appointment={a} canMove={canBook} canManage={!!session.data && (session.data.canAssign || session.data.isPractitioner)} canDelete={!!session.data?.canAssign} refresh={refresh} />
             {a.status === 0 && new Date(a.startTime).getTime() > Date.now() && <Button color="warning" disabled={busy} onClick={() => cancel.mutate(a.id)}>Foglalás lemondása</Button>}
         </Paper>)}
     </Box>;

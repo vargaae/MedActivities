@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import agent from '../../lib/api/agent';
 import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
 import { errorText, type ManagedUser } from './shared';
+import PatientRecordsPanel from './PatientRecordsPanel';
 type Patient = { id: string; name: string; tajNumber: string; birthDate: string; email: string; phone: string; address: string; notes: string; userId?: string };
 type EventItem = { id: string; title: string; date: string; status: string };
 const blank = { id: '', name: '', tajNumber: '', birthDate: '', email: '', phone: '', address: '', notes: '' };
@@ -48,6 +49,7 @@ export default function PatientsPage() {
             {events.isPending && <Typography>Betöltés…</Typography>}{events.isError && <Alert severity="error">Az események nem tölthetők be.</Alert>}
             {events.data?.map(a => <Box key={a.id} sx={{ py: 1 }}><Button component={Link} to={`/activities/${a.id}`}>{a.title}</Button><Typography>{a.date.replace('T', ' ')} · {a.status}</Typography></Box>)}
             {events.data?.length === 0 && <Typography>Nincs kapcsolt esemény.</Typography>}
+            {selected && <PatientRecordsPanel key={session.version + selected.id} patientId={selected.id} />}
         </DialogContent><DialogActions><Button onClick={() => setSelected(null)}>Bezárás</Button></DialogActions></Dialog>
         <Dialog open={!!remove} onClose={() => { if (!busy) setRemove(null); }}><DialogTitle>Páciens törlése</DialogTitle><DialogContent>{remove?.name} törlése? Eseményhez vagy foglaláshoz kapcsolt páciens nem törölhető.{error && <Alert severity="error">{error}</Alert>}</DialogContent><DialogActions><Button disabled={busy} onClick={() => setRemove(null)}>Mégse</Button><Button color="error" disabled={busy} onClick={() => void run(async () => { await agent.delete(`/patients/${remove!.id}`); setRemove(null); })}>Törlés</Button></DialogActions></Dialog>
     </Box>;

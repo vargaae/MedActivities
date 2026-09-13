@@ -1,98 +1,111 @@
 # EgészségÚt / MedActivities
 
-Egészségügyi esemény-, páciens- és időpontkezelő rendszer, amely közös REST API-n keresztül támogatja a páciensek, kezelőorvosok és egészségügyi adminisztrátorok munkáját webes és Windows Forms kliensből.
+Egészségügyi páciens-, esemény- és időpontkezelő rendszer React webes klienssel és Designer-kompatibilis Windows Forms pácienskezelővel. A két kliens ugyanazt a jogosultságvédett REST API-t használja, az API pedig SQL Serverhez vagy fejlesztési célból SQLite-hoz kapcsolódik.
 
-## Projektállapot
+## Aktuális állapot
 
-Elkészült vagy részben elkészült:
+Az első véglegesítési csomag elkészült:
 
-- ASP.NET Core Web API .NET 10 alapon
-- Domain, Application és Persistence rétegek
-- ASP.NET Identity alapú autentikáció és szerepkörkezelés
-- Páciens, kezelőorvos és egészségügyi esemény CRUD API
-- Páciens–orvos hozzáférések, munkaidő és foglalási beállítások
-- Időpontfoglalás, szabad időpontok és lemondás
-- React + TypeScript webes kliens és adminisztrációs oldalak
-- SQLite alapú fejlesztői adatbázis és EF Core migrationök
-- Windows Forms páciens- és eseménykezelő közvetlen SQLite-kapcsolattal, közös EF-adatmodellel és TAJ-kezeléssel
-- Desktop SQLite-integrációs ellenőrzések külön tesztadatbázisokon
+- SQL Server EF Core provider és külön SQL Server migration-készlet.
+- Konfigurálható SQL Server/SQLite adatkapcsolat; induláskor nincs automatikus production migration.
+- ASP.NET Identity tokenes bejelentkezés és szerepkörök: Admin, AdmissionsOffice, Practitioner, Patient.
+- Páciens teljes CRUD, egyedi 9 számjegyű TAJ-kezelés, kezdő nullák megőrzésével.
+- Kezelő, hozzárendelés, esemény és időpont CRUD, ütközés- és munkaidő-ellenőrzéssel.
+- Páciensenkénti megjegyzés- és dokumentum-CRUD. A támogatott fájlok PDF, PNG, JPEG és UTF-8 TXT, legfeljebb 5 MB; a tartalom SQL Serveren `varbinary(max)` mezőben tárolódik.
+- React felületek a páciens-adatlaphoz, megjegyzésekhez, dokumentumokhoz és időpontok átfoglalásához.
+- Új Windows Forms kliens a `Desktop_Pacienskezelo` mappában. Az űrlapokhoz külön `.Designer.cs` és `.resx` tartozik, ezért Visual Studio 2026-ban a Designer megnyitható és szerkeszthető.
+- A WinForms kliens API-bejelentkezést használ, nem tárol SQL-jelszót, és ugyanazokat az SQL Server-adatokat látja, mint a web.
+- 64 lépéses, izolált SQL Server–API–WinForms integrációs ellenőrzés; a régi SQLite klienshez külön regressziós teszt maradt.
 
-Következő feladatok:
-
-- Időpont-módosítás és teljes időpont CRUD lezárása
-- Dokumentum- és megjegyzéskezelés teljes CRUD-ja
-- React felületek egységesítése
-- Windows Forms API-bejelentkezés és jogosultságkezelés
-- Teljes webes–asztali integrációs tesztek
-- SQLite kiváltása Microsoft SQL Serverrel
-
-## Fő funkciók
-
-### Páciens
-
-- Regisztráció és bejelentkezés
-- Saját profil kezelése
-- Egészségügyi események megtekintése
-- Időpontfoglalás és lemondás
-- Dokumentumok és megjegyzések megtekintése
-
-### Kezelőorvos és egészségügyi dolgozó
-
-- Páciensek, kezelőorvosok és események kezelése
-- Páciens- és kezelőhozzárendelések kezelése
-- Munkaidő és foglalási szabályok kezelése
-- Időpontok és státuszok kezelése
-- Dokumentumok és megjegyzések kezelése
-
-## Technológiák
-
-- Backend: ASP.NET Core Web API, .NET 10, Entity Framework Core 10, ASP.NET Identity, MediatR, AutoMapper
-- Web: React 19, TypeScript, Vite, React Router, React Query, React Hook Form, Zod, Material UI
-- Desktop: Windows Forms, .NET 10
-- Adatbázis: jelenleg SQLite, a végleges cél Microsoft SQL Server
+A projektben nincs becsomagolt üzemi jelszó vagy felhasználói adatbázis.
 
 ## Architektúra
 
 ```text
-React ─── ASP.NET Core Web API ─── Persistence / Domain ─── SQLite
-                                          │
-Windows Forms ────────────────────────────┘
+React + TypeScript ───────┐
+                          ├── ASP.NET Core REST API ── Persistence / Domain ── SQL Server
+Windows Forms ────────────┘                                     └────────────── SQLite (dev)
 ```
 
-A React az API-n keresztül kapcsolódik. A jelenlegi WinForms kliens ugyanazt a Persistence/Domain modellt használja, közvetlen helyi SQLite-hozzáféréssel. A desktop API-bejelentkezése és szerepkörkezelése még fejlesztendő.
+A desktop kliens szándékosan az API-n keresztül működik. Így a páciensadatok, TAJ, dokumentumok és jogosultságok nem kerülnek megkerülhető, külön asztali adatkezelési logikába.
 
 ## Projektstruktúra
 
 ```text
-API/          ASP.NET Core Web API és kontrollerek
-Application/  Use case-ek, DTO-k, lekérdezések és parancsok
-Domain/       Entitások és domain típusok
-Persistence/  EF Core DbContext, Identity és migrationök
-client/       React webes kliens
-client-dev/   Fejlesztői frontend változat
-Desktop/      Windows Forms páciens- és eseménykezelő
-Desktop.IntegrationTests/  Elkülönített SQLite-integrációs ellenőrzések
+API/                         ASP.NET Core API és kontrollerek
+Application/                 alkalmazási réteg
+Domain/                      domain entitások
+Persistence/                 EF Core DbContext és migrationök
+Persistence/Migrations/      SQLite migrationök
+Persistence/Migrations/SqlServer/ SQL Server migrationök
+client/                      aktív React + TypeScript kliens
+Desktop_Pacienskezelo/       Designer-kompatibilis SQL Server/API WinForms kliens
+Desktop/                     korábbi, közvetlen SQLite fejlesztői kliens
+IntegrationTests/            SQL Server/API/WinForms integrációs ellenőrzés
+Desktop.IntegrationTests/   SQLite és régi desktop regressziós ellenőrzés
+archive/web-tutorial/       korábbi, nem használt webes sablonkód megőrzött másolata
 ```
 
-## Szükséges környezet
+A Visual Studio 2026-ban megnyitható külön asztali megoldás:
+[Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx](Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx).
 
-- .NET 10 SDK
-- Node.js és npm
-- Visual Studio 2022 vagy újabb
-- Microsoft SQL Server
-- SQL Server Management Studio vagy Azure Data Studio
+## Előfeltételek
 
-## Indítás fejlesztői SQLite-tal
+- .NET 10 SDK.
+- Visual Studio 2026 Windows Forms és .NET asztali fejlesztési workloaddal.
+- Node.js 20 vagy újabb és npm.
+- SQL Server vagy SQL Server Express/LocalDB. A fejlesztői példa LocalDB-t használ.
+- Első futtatáskor a HTTPS fejlesztői tanúsítvány: `dotnet dev-certs https --trust`.
 
-API:
+## SQL Server beállítása
+
+A gyökér `API/appsettings.json` fejlesztői LocalDB-példát tartalmaz:
+
+```text
+Server=(localdb)\MSSQLLocalDB;Database=MedActivities;Integrated Security=True;Encrypt=True;TrustServerCertificate=True
+```
+
+A `TrustServerCertificate=True` csak helyi fejlesztéshez való. Üzemi SQL Serveren használj hitelesített tanúsítványt és a saját connection stringet.
+
+1. Állítsd be a connection stringet környezeti változóban vagy User Secrets-ben; ne írd jelszóval a verziókezelt fájlba.
+
+2. Futtasd a migrációt explicit módon:
 
 ```powershell
-dotnet restore
-dotnet build
+dotnet tool restore
+$env:Database__Provider = "SqlServer"
+$env:ConnectionStrings__SqlServerConnection = "Server=(localdb)\MSSQLLocalDB;Database=MedActivities;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+dotnet ef database update --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
+```
+
+Ugyanez a repository gyökeréből futtatható a `scripts/Initialize-SqlServer.ps1` segédszkripttel is; a script a connection stringet csak a futó folyamat környezetében használja, és befejezéskor visszaállítja a korábbi környezeti változókat.
+
+3. Az első admin-fiókhoz csak új e-mail-cím esetén használható bootstrap:
+
+```powershell
+$env:BootstrapAdmin__Email = "admin@example.invalid"
+$env:BootstrapAdmin__Password = "Adj-meg-egy-erős-jelszót"
 dotnet run --project API/API.csproj
 ```
 
-React kliens:
+A bootstrap értékeket a futtatási folyamat végén töröld a PowerShell-munkamenetből. A `Database:ApplyMigrations` alapértéke `false`; éles környezetben a migrációt külön release-lépésként futtasd. Részletes beállítási példák: [API/appsettings.SqlServer.example.json](API/appsettings.SqlServer.example.json) és [docs/SQL-SERVER.md](docs/SQL-SERVER.md).
+
+## SQLite fejlesztési mód
+
+SQLite-hoz explicit módon válts:
+
+```powershell
+$env:Database__Provider = "Sqlite"
+$env:ConnectionStrings__DefaultConnection = "Data Source=activities.db"
+dotnet ef database update --project Persistence/Persistence.csproj --startup-project API/API.csproj
+dotnet run --project API/API.csproj
+```
+
+A SQLite migrationök a `Persistence/Migrations` mappában vannak. A SQL Server és SQLite sémát nem keverd ugyanabban az adatbázisban.
+
+## Webes kliens indítása
+
+Külön terminálban:
 
 ```powershell
 cd client
@@ -100,83 +113,72 @@ npm install
 npm run dev
 ```
 
-A fejlesztői SQLite connection string az `API/appsettings.Development.json` fájlban található; az adatbázis neve `activities.db`.
-
-## EF Core migrationök
+A Vite fejlesztői szerver a `https://localhost:3000` címet használja, és az API `https://localhost:5001` címére proxyz. Kiadási build:
 
 ```powershell
-dotnet ef database update --project Persistence/Persistence.csproj --startup-project API/API.csproj
-dotnet ef migrations add MigrationName --project Persistence/Persistence.csproj --startup-project API/API.csproj
+cd client
+npm run build
 ```
+
+Az elkészült `client/dist` tartalmát webes kiadáskor az API `wwwroot` mappájába vagy külön statikus tárhelyre telepítsd. A CORS eredeteket a `Cors:Origins` konfigurációban állítsd.
 
 ## Windows Forms kliens
 
-A páciens- és eseménykezelő már a solution része. Indítás a repository gyökeréből:
+Visual Studio 2026-ban nyisd meg a [Desktop_Pacienskezelo.slnx](Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx) fájlt, vagy a gyökér [MedActivities.slnx](MedActivities.slnx) megoldást. Indítsd a `Desktop_Pacienskezelo` projektet.
+
+Parancssorból:
 
 ```powershell
-dotnet run --project Desktop/MedActivities.Patient.Sqlite.WinForms.csproj
+dotnet build Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
+dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
 ```
 
-Az alkalmazás az API által migrált `API/activities.db` adatbázist használja. Tartalmaz TAJ-kezelést, keresést, páciens- és esemény-CRUD-ot, valamint kezelőhozzárendelést. A foglalási események itt csak olvashatók.
+Az API-cím alapértéke `https://localhost:5001/api`, illetve a `MEDACTIVITIES_API_URL` környezeti változóval módosítható. Bejelentkezés után az alkalmazás a következőket kezeli:
 
-A részletes működés, régi kapcsolatok átemelése, tesztparancs és korlátozások a [Desktop útmutatóban](Desktop/README.md) találhatók.
+- páciens lista, TAJ szerinti keresés, létrehozás, szerkesztés, törlés;
+- események és kezelőhozzárendelések;
+- foglalások létrehozása, átfoglalása, lemondása, státusza és törlése jogosultság szerint;
+- páciensenkénti dokumentumfeltöltés/letöltés/átnevezés/törlés;
+- páciensenkénti megjegyzés létrehozása/szerkesztése/törlése.
 
-## MS SQL Serverre átállás
+A `Form1.cs`, `PatientEditForm.cs`, `ActivityEditForm.cs`, `AppointmentForm.cs` és `RecordsForm.cs` mellett az azonos nevű Designer fájlok statikus vezérlődefiníciókat tartalmaznak. A konstruktorok nem kapcsolódnak adatbázishoz, ezért a Designerben biztonságosan megnyithatók.
 
-Az átállás a CRUD-funkciók és a WinForms kliens stabilizálása után történik:
+## Tesztelés
 
-1. `Microsoft.EntityFrameworkCore.SqlServer` hozzáadása.
-2. SQLite provider és SQLite-specifikus kódok eltávolítása.
-3. `UseSqlite` lecserélése `UseSqlServer` hívásra.
-4. SQL Server connection string beállítása.
-5. SQL Serverhez illeszkedő migrationök létrehozása.
-6. Adatbázis, seed adatok és szerepkörök ellenőrzése.
-7. API-, React- és WinForms-integrációs tesztelés.
+A teljes SQL Server ellenőrzéshez LocalDB szükséges:
 
-Példa:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=MedActivities;Trusted_Connection=True;TrustServerCertificate=True"
-  }
-}
+```powershell
+dotnet build MedActivities.slnx
+dotnet run --project IntegrationTests/IntegrationTests.csproj -- "C:\IT2026-VIZSGA\00_VIZSGAREMEK_02_WEB\MedAcitivities"
 ```
 
-Connection stringet ne tölts fel verziókezelésbe; használj User Secrets-t vagy környezeti változót.
+A teszt minden futáskor `MedActivities_Test_<azonosító>` nevű új adatbázist használ, majd csak ezt az adatbázist törli. A valódi `MedActivities` adatbázist, a felhasználó `activities.db` fájlját és más meglévő adatot nem érinti. A WinForms formok bitmap-renderelése is ellenőrzött.
 
-## 12 órás befejezési sorrend
+SQLite regresszió:
 
-1. API CRUD-kiegészítések és validációk
-2. Időpontkezelés lezárása
-3. Dokumentum- és megjegyzéskezelés
-4. React felületek véglegesítése
-5. Windows Forms projekt, bejelentkezés és navigáció
-6. WinForms páciens-, orvos-, esemény- és időpontkezelés
-7. Integrációs tesztelés
-8. MS SQL Server provider, konfiguráció és migrationök
-9. Regressziós teszt és dokumentációfrissítés
-
-## Kiadás előtti ellenőrzés
-
-- `dotnet build` és React production build sikeres
-- Minden CRUD végpont jogosultságot és bemenetet ellenőriz
-- Kapcsolt rekordok törlése megfelelően kezelt
-- Foglalási ütközések tesztelve
-- A webes és a WinForms kliens ugyanazt az API-t használja
-- SQL Serveren minden migration sikeresen lefut
-- Tesztfelhasználók és szerepkörök dokumentálva vannak
-
-## Fejlesztési konvenciók
-
-Commit formátum:
-
-```text
-MED-XX type: rövid leírás
+```powershell
+dotnet run --project Desktop.IntegrationTests/Desktop.IntegrationTests.csproj
 ```
 
-Típusok: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+A jelenlegi környezetben az SQL Server integrációs futás 64 ellenőrzése sikeres volt. A frontend Vite kiadási buildje elkészült; a bundle mérete miatt Vite csak optimalizálási figyelmeztetést ad.
 
-## Készítő
+## Ismert korlátozások
+
+- A dokumentumok mérete és alapvető fájltartalma ellenőrzött, de a csomag nem vírusirtó és nem teljes orvosi dokumentum-validáló rendszer.
+- A SQLite fejlesztési útvonalhoz a `SQLitePCLRaw.lib.e_sqlite3` csomag upstream biztonsági figyelmeztetése fennáll; végleges telepítéshez SQL Server profilt használj, és a SQLite függőség frissítését külön kompatibilitási feladatként kezeld.
+- A projektben maradt régi tutorial kód az `archive/web-tutorial` mappában van, nem része az aktív frontend fordításnak.
+- A SQL Serverre váltás után egy meglévő SQLite üzemi adatbázis adatainak automatikus konverzióját ne indítsd el ellenőrzés nélkül. Készíts mentést, ellenőrizd a TAJ- és kapcsolatadatokat, majd az SQL Server migration után célzott importot végezz.
+
+## Leadás előtti ellenőrzőlista
+
+- [ ] SQL Server adatbázis és migration sikeres.
+- [ ] Bootstrap admin létrehozása, majd szerepkörök ellenőrzése.
+- [ ] Webes belépés, páciens-adatlap, dokumentum és időpont kipróbálása.
+- [ ] WinForms Designer megnyitása Visual Studio 2026-ban.
+- [ ] WinForms belépés ugyanazzal az API-val és SQL Serverrel.
+- [ ] `dotnet build MedActivities.slnx`, SQL Server integrációs teszt és `npm run build` sikeres.
+- [ ] Connection string, jelszó, SQLite fájl és tesztartefaktum nincs a beadandó ZIP-ben.
+
+## Szerző
 
 **Varga András Ernő**

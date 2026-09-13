@@ -1,17 +1,12 @@
-import { getActivityToken } from "./activitySession";
+import { getActivityToken, setActivityToken } from "./activitySession";
 import axios from "axios";
 import { store } from "../stores/store";
 import { toast } from "react-toastify";
 import { router } from "../../app/router/routes";
 
-const sleep = (delay: number) => {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delay);
-  });
-};
 
 const agent = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
 agent.interceptors.request.use((config) => {
@@ -23,7 +18,6 @@ agent.interceptors.request.use((config) => {
 
 agent.interceptors.response.use(
   async (response) => {
-    await sleep(1000);
     store.uiStore.isIdle();
     return response;
   },
@@ -63,7 +57,8 @@ agent.interceptors.response.use(
         toast.error(data.message ?? "Ütközés az adatokban.");
         break;
       case 401:
-        toast.error("Sikeres kijelentkezés, kérjük jelentkezzen be újra.");
+        if (getActivityToken()) setActivityToken('');
+        toast.error("A belépési adatok vagy a munkamenet nem érvényesek.");
         break;
       case 403:
         toast.error("Nem engedélyezett hozzáférés.");

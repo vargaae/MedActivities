@@ -30,7 +30,9 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
     [HttpDelete("{id}"), Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> Delete(string id) {
         var p=await db.Patients.FindAsync(id); if(p is null) return NotFound();
-        if(await db.Appointments.AnyAsync(a=>a.PatientId==id) || await db.PatientActivities.AnyAsync(a=>a.PatientId==id)) return Conflict("Eseményhez vagy foglaláshoz kapcsolt páciens nem törölhető.");
+        if(await db.Appointments.AnyAsync(a=>a.PatientId==id) || await db.PatientActivities.AnyAsync(a=>a.PatientId==id) ||
+            await db.PatientNotes.AnyAsync(n=>n.PatientId==id) || await db.PatientDocuments.AnyAsync(d=>d.PatientId==id))
+            return Conflict(new { message = "Eseményhez, foglaláshoz, dokumentumhoz vagy megjegyzéshez kapcsolt páciens nem törölhető." });
         db.Patients.Remove(p); await db.SaveChangesAsync(); return NoContent();
     }
     [HttpPut("{id}/user"), Authorize(Roles="Admin")]
@@ -53,6 +55,13 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
     public async Task<IActionResult> Revoke(string id,string practitionerId) {
         var a=await db.PatientPractitionerAccesses.FindAsync(id,practitionerId);
         if(a is not null) {db.Remove(a); await db.SaveChangesAsync();} return NoContent();
+    }
+    [HttpPut("{id}/contact")]
+    public async Task<IActionResult> Contact(string id, ContactInput input) {
+        if(!access.Staff && !await access.OwnPatient(id)) return Forbid();
+        var p=await db.Patients.FindAsync(id); if(p is null) return NotFound();
+        p.Email=input.Email;p.Phone=input.Phone;p.Address=input.Address;
+        await db.SaveChangesAsync();return NoContent();
     }
     [HttpGet("{id}/activities")]
     public async Task<IActionResult> Activities(string id) {

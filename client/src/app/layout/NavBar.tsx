@@ -77,6 +77,7 @@ export default function NavBar() {
     (session.isError ? "" : "Sikeres bejelentkezés");
 
   const links = [
+    ...(session.authenticated ? [{ to: "/health-records", label: "Betegadatlapok", Icon: AccountCircleRounded }] : []),
     {
       to: "/",
       label: "Kezdőlap",

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 using Persistence;
 using Persistence.Identity;
 namespace API.Med;
@@ -18,6 +19,12 @@ public static class MedSetup
 
         try {await next();}
         catch(BookingException e){context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message=e.Message});}
+        catch(DbUpdateException e) when(e.InnerException is SqlException {Number:2601 or 2627 or 547}) {
+            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Egyediség vagy kapcsolat sérül: TAJ, felhasználó, dokumentum, napi foglalás vagy foglalt időpont."});
+        }
+        catch(Exception e) when(e is SqlException {Number:1205 or 1222} || e.InnerException is SqlException {Number:1205 or 1222}) {
+            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Párhuzamos adatbázis-művelet. Frissíts és próbáld újra."});
+        }
         catch(DbUpdateException e) when(e.InnerException is SqliteException {SqliteErrorCode:19}) {
             context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Egyediség vagy kapcsolat sérül: TAJ, felhasználó, napi foglalás vagy foglalt időpont."});
         }

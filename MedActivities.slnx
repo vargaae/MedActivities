@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="API/API.csproj" />
+  <Project Path="IntegrationTests/IntegrationTests.csproj" />
+  <Project Path="Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj" />
   <Project Path="Application/Application.csproj" />
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Persistence/Persistence.csproj" />
