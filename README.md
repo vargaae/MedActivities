@@ -14,14 +14,16 @@ Elkészült vagy részben elkészült:
 - Időpontfoglalás, szabad időpontok és lemondás
 - React + TypeScript webes kliens és adminisztrációs oldalak
 - SQLite alapú fejlesztői adatbázis és EF Core migrationök
+- Windows Forms páciens- és eseménykezelő közvetlen SQLite-kapcsolattal, közös EF-adatmodellel és TAJ-kezeléssel
+- Desktop SQLite-integrációs ellenőrzések külön tesztadatbázisokon
 
 Következő feladatok:
 
 - Időpont-módosítás és teljes időpont CRUD lezárása
 - Dokumentum- és megjegyzéskezelés teljes CRUD-ja
 - React felületek egységesítése
-- Windows Forms kliens létrehozása
-- Integrációs tesztek
+- Windows Forms API-bejelentkezés és jogosultságkezelés
+- Teljes webes–asztali integrációs tesztek
 - SQLite kiváltása Microsoft SQL Serverrel
 
 ## Fő funkciók
@@ -52,13 +54,12 @@ Következő feladatok:
 ## Architektúra
 
 ```text
-React webes kliens ─────┐
-                        ├── ASP.NET Core Web API ─── Persistence ─── Adatbázis
-Windows Forms kliens ───┘              │
-                                      └── Domain / Application
+React ─── ASP.NET Core Web API ─── Persistence / Domain ─── SQLite
+                                          │
+Windows Forms ────────────────────────────┘
 ```
 
-A kliensek nem közvetlenül kapcsolódnak az adatbázishoz. Az autentikáció, jogosultság-ellenőrzés és üzleti logika az API-ban található.
+A React az API-n keresztül kapcsolódik. A jelenlegi WinForms kliens ugyanazt a Persistence/Domain modellt használja, közvetlen helyi SQLite-hozzáféréssel. A desktop API-bejelentkezése és szerepkörkezelése még fejlesztendő.
 
 ## Projektstruktúra
 
@@ -69,7 +70,8 @@ Domain/       Entitások és domain típusok
 Persistence/  EF Core DbContext, Identity és migrationök
 client/       React webes kliens
 client-dev/   Fejlesztői frontend változat
-Desktop/      Tervezett Windows Forms kliens
+Desktop/      Windows Forms páciens- és eseménykezelő
+Desktop.IntegrationTests/  Elkülönített SQLite-integrációs ellenőrzések
 ```
 
 ## Szükséges környezet
@@ -109,15 +111,15 @@ dotnet ef migrations add MigrationName --project Persistence/Persistence.csproj 
 
 ## Windows Forms kliens
 
-A WinForms projekt a következő fejlesztési ütemben kerül a solutionbe. Az alkalmazás az API-t használja, és a következő képernyőket tartalmazza:
+A páciens- és eseménykezelő már a solution része. Indítás a repository gyökeréből:
 
-1. Bejelentkezés
-2. Főmenü/dashboard
-3. Páciensek kezelése
-4. Kezelőorvosok kezelése
-5. Egészségügyi események kezelése
-6. Időpontok és státuszok kezelése
-7. Dokumentumok és megjegyzések
+```powershell
+dotnet run --project Desktop/MedActivities.Patient.Sqlite.WinForms.csproj
+```
+
+Az alkalmazás az API által migrált `API/activities.db` adatbázist használja. Tartalmaz TAJ-kezelést, keresést, páciens- és esemény-CRUD-ot, valamint kezelőhozzárendelést. A foglalási események itt csak olvashatók.
+
+A részletes működés, régi kapcsolatok átemelése, tesztparancs és korlátozások a [Desktop útmutatóban](Desktop/README.md) találhatók.
 
 ## MS SQL Serverre átállás
 

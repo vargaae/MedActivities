@@ -1,3 +1,6 @@
 {
-  "js/ts.experimental.useTsgo": false
+  "js/ts.experimental.useTsgo": false,
+  "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
+    "MedActivities.slnx"
+  ]
 }
