@@ -1,69 +1,21 @@
-import { Event, FilterList } from "@mui/icons-material";
-import {
-  Box,
-  Typography,
-  MenuList,
-  MenuItem,
-  ListItemText,
-  Paper,
-} from "@mui/material";
-import "react-calendar/dist/Calendar.css";
-import Calendar from "react-calendar";
-
-export default function ActivityFilters() {
-  return (
-    <Box
-      sx={{ display: "flex", flexDirection: "column", gap: 3, borderRadius: 3 }}
-    >
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Box sx={{ width: "100%" }}>
-          <Typography
-            variant="h6"
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              mb: 1,
-              color: "primary.main",
-            }}
-          >
-            <FilterList sx={{ mr: 1 }} />
-            Filters
-          </Typography>
-          <MenuList>
-            <MenuItem>
-              <ListItemText primary="All Events" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Future Events" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="History" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Examinations" />
-            </MenuItem>
-            <MenuItem>
-              <ListItemText primary="Treatments" />
-            </MenuItem>
-          </MenuList>
-        </Box>
-      </Paper>
-
-      <Box component={Paper} sx={{ width: "100%", p: 3, borderRadius: 3 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            mb: 1,
-            color: "primary.main",
-          }}
-        >
-          <Event sx={{ mr: 1 }} />
-          Select date
-        </Typography>
-        <Calendar />
-      </Box>
-    </Box>
-  );
+import { Box, Button, MenuItem, MenuList, Paper, TextField, Typography } from '@mui/material';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
+import { categoryOptions } from '../form/categoryOptions';
+export type ActivityFilter = 'all' | 'future' | 'history';
+type Props = { filter: ActivityFilter; date: Date | null; category: string; onFilter: (value: ActivityFilter) => void; onDate: (value: Date | null) => void; onCategory: (value: string) => void };
+export default function ActivityFilters({ filter, date, category, onFilter, onDate, onCategory }: Props) {
+    return <Box sx={{ display: 'grid', gap: 3 }}>
+        <Paper sx={{ p: 3, borderRadius: 3 }}><Typography variant="h6">Szűrők</Typography>
+            <MenuList>{([{ value: 'all', label: 'Összes esemény' }, { value: 'future', label: 'Közelgő események' }, { value: 'history', label: 'Korábbi események' }] as const).map(item => <MenuItem key={item.value} selected={filter === item.value} onClick={() => onFilter(item.value)}>{item.label}</MenuItem>)}</MenuList>
+            <TextField fullWidth select label="Kategória" value={category} onChange={e => onCategory(e.target.value)}>
+                <MenuItem value="">Minden kategória</MenuItem>{categoryOptions.map(c => <MenuItem key={c.value} value={c.value}>{c.text}</MenuItem>)}
+            </TextField>
+        </Paper>
+        <Paper sx={{ p: 3, borderRadius: 3 }}><Typography variant="h6" sx={{ mb: 2 }}>Dátum kiválasztása</Typography>
+            <Calendar locale="hu-HU" value={date} onChange={value => onDate(value instanceof Date ? value : null)} />
+            {date && <Button onClick={() => onDate(null)}>Dátumszűrés törlése</Button>}
+            <Button onClick={() => { onFilter('all'); onCategory(''); onDate(null); }}>Összes szűrő törlése</Button>
+        </Paper>
+    </Box>;
 }

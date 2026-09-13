@@ -1,3 +1,4 @@
+import ActivityPeople from '../details/ActivityPeople';
 import { AccessTime, Place } from "@mui/icons-material";
 import {
   Avatar,
@@ -21,7 +22,7 @@ export default function ActivityCard({ activity }: Props) {
   const isHost = false;
   const isGoing = false;
   const label = isHost ? "You are hosting" : "You are going";
-  const isCancelled = false;
+  const isCancelled = activity.isCancelled;
   const color = isHost ? "secondary" : isGoing ? "warning" : "default";
 
   return (
@@ -38,7 +39,7 @@ export default function ActivityCard({ activity }: Props) {
           }}
           subheader={
             <>
-              Attending physician: <Link to={`/profiles/bob`}>Dr. Bob</Link>
+              Kezelőorvos: {activity.practitioners?.map(p => p.name).join(', ') || 'Nincs hozzárendelve'}
             </>
           }
         />
@@ -47,7 +48,7 @@ export default function ActivityCard({ activity }: Props) {
             <Chip label={label} color={color} sx={{ borderRadius: 2 }} />
           )}
           {isCancelled && (
-            <Chip label="Cancelled" color="error" sx={{ borderRadius: 2 }} />
+            <Chip label="Lemondva" color="error" sx={{ borderRadius: 2 }} />
           )}
         </Box>
       </Box>
@@ -70,7 +71,7 @@ export default function ActivityCard({ activity }: Props) {
           gap={2}
           sx={{ backgroundColor: "grey.200", py: 3, pl: 3 }}
         >
-          Hozzáférés engedélyezve: Kezelőorvos, Gyógytornász
+          <ActivityPeople activity={activity} />
         </Box>
       </CardContent>
       <CardContent sx={{ paddingBottom: 3 }}>
@@ -82,9 +83,10 @@ export default function ActivityCard({ activity }: Props) {
           color="primary"
           sx={{ display: "flex", justifySelf: "self-end", borderRadius: 3 }}
         >
-          View
+          Megtekintés
         </Button>
       </CardContent>
     </Card>
   );
 }
+

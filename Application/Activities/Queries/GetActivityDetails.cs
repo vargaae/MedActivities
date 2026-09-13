@@ -1,25 +1,15 @@
-using Domain;
+using Application.Activities.DTOs;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Persistence;
-
 namespace Application.Activities.Queries;
-
 public class GetActivityDetails
 {
-    public class Query : IRequest<Activity>
+    public class Query : IRequest<ActivityDto?> { public required string Id { get; set; } }
+    public class Handler(AppDbContext context) : IRequestHandler<Query,ActivityDto?>
     {
-        public required string Id { get; set; }
-    }
-
-    public class Handler(AppDbContext context) : IRequestHandler<Query, Activity>
-    {
-        public async Task<Activity> Handle(Query request, CancellationToken cancellationToken)
-        {
-            var activity = await context.Activities.FindAsync([request.Id], cancellationToken);
-
-            if (activity == null) throw new Exception("Activity not found");
-
-            return activity;
-        }
+        public async Task<ActivityDto?> Handle(Query request,CancellationToken cancellationToken)
+            => await context.Activities.AsNoTracking().Where(a=>a.Id==request.Id)
+                .Select(ActivityDto.Projection).SingleOrDefaultAsync(cancellationToken);
     }
 }

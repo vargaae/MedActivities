@@ -24,4 +24,14 @@ public required string Venue { get; set; }
 public double Latitude { get; set; }
 
 public double Longitude { get; set; }
+
+// medical props
+public string Status { get; set; } = "Scheduled";
+public string? MedicalNotes { get; set; }
+public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+public string? CreatedByUserId { get; set; }
+public DateTime? UpdatedAt { get; set; }
+public string? UpdatedByUserId { get; set; }
+public ICollection<PatientActivity> PatientActivities { get; set; } = [];
+public ICollection<ActivityPractitioner> ActivityPractitioners { get; set; } = [];
 }

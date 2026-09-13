@@ -1,14 +1,19 @@
-using System;
 using Domain;
+using Microsoft.EntityFrameworkCore;
+using Persistence.Identity;
 
 namespace Persistence;
 
+// Fiktív vizsgaadatok. Az összes kapcsolat nélküli eseményt a demópácienshez
+// és demókezelőhöz kapcsolja. Valós betegadatbázison ne futtasd.
 public class DbInitalizer
 {
     public static async Task SeedData(AppDbContext context)
     {
-        if (context.Activities.Any()) return;
+        await using var transaction = await context.Database.BeginTransactionAsync();
 
+        if (!await context.Activities.AnyAsync())
+        {
         var activities = new List<Activity>
         {
         new()
@@ -123,9 +128,109 @@ new()
 }
         };
 
-        context.Activities.AddRange(activities);
+
+            context.Activities.AddRange(activities);
+            await context.SaveChangesAsync();
+        }
+
+        // A régi korai return helyett a meglévő rekordokat is kiegészítjük.
+        var activitiesToLink = await context.Activities
+            .Include(a => a.PatientActivities)
+            .Include(a => a.ActivityPractitioners)
+            .Where(a => !a.PatientActivities.Any() || !a.ActivityPractitioners.Any())
+            .ToListAsync();
+
+        if (activitiesToLink.Count == 0)
+        {
+            await transaction.CommitAsync();
+            return;
+        }
+
+        Patient? patient = null;
+        if (activitiesToLink.Any(a => a.PatientActivities.Count == 0))
+        {
+            patient = await context.Patients.FindAsync("demo-patient-minta-anna");
+            if (patient is null)
+            {
+                if (await context.Patients.AnyAsync(p => p.TajNumber == "000000001"))
+                    throw new InvalidOperationException("A demópáciens 000000001 teszt-TAJ értéke már foglalt. Válassz másik fiktív értéket a seedben.");
+
+                patient = new Patient
+                {
+                    Id = "demo-patient-minta-anna",
+                    Name = "Minta Anna (demó)",
+                    TajNumber = "000000001",
+                    BirthDate = new DateOnly(1990, 1, 15),
+                    Notes = "Fiktív vizsgapáciens; nem valós TAJ-adat."
+                };
+                context.Patients.Add(patient);
+            }
+        }
+
+        PractitionerProfile? practitioner = null;
+        if (activitiesToLink.Any(a => a.ActivityPractitioners.Count == 0))
+        {
+            practitioner = await context.Practitioners.FindAsync("demo-practitioner-minta-peter");
+            if (practitioner is null)
+            {
+                if (await context.Practitioners.AnyAsync(p => p.TajNumber == "000000002"))
+                    throw new InvalidOperationException("A demókezelő 000000002 teszt-TAJ értéke már foglalt. Válassz másik fiktív értéket a seedben.");
+
+                // A PractitionerProfile.UserId kötelező idegen kulcs.
+                // Jelszó nélküli, belépésre nem használható demóidentitás.
+                const string userId = "demo-user-minta-peter";
+                var user = await context.Users.FindAsync(userId);
+                if (user is null)
+                {
+                    user = new AppUser
+                    {
+                        Id = userId,
+                        UserName = "demo.seed.minta.peter",
+                        NormalizedUserName = "DEMO.SEED.MINTA.PETER",
+                        SecurityStamp = Guid.NewGuid().ToString(),
+                        EmailConfirmed = false
+                    };
+                    context.Users.Add(user);
+                }
+
+                practitioner = new PractitionerProfile
+                {
+                    Id = "demo-practitioner-minta-peter",
+                    UserId = userId,
+                    Name = "Dr. Minta Péter (demó)",
+                    TajNumber = "000000002",
+                    Specialty = "Rehabilitáció",
+                    City = "Budapest",
+                    Venue = "Demó rendelő"
+                };
+                context.Practitioners.Add(practitioner);
+            }
+        }
+
+        foreach (var activity in activitiesToLink)
+        {
+            if (activity.PatientActivities.Count == 0)
+            {
+                activity.PatientActivities.Add(new PatientActivity
+                {
+                    ActivityId = activity.Id,
+                    PatientId = patient!.Id,
+                    Patient = patient
+                });
+            }
+
+            if (activity.ActivityPractitioners.Count == 0)
+            {
+                activity.ActivityPractitioners.Add(new ActivityPractitioner
+                {
+                    ActivityId = activity.Id,
+                    PractitionerId = practitioner!.Id,
+                    Practitioner = practitioner
+                });
+            }
+        }
 
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
-
 }

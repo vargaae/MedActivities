@@ -1,3 +1,4 @@
+import ActivityPeople from './ActivityPeople';
 import { CalendarToday, Info, Place } from "@mui/icons-material";
 import { Box, Button, Divider, Grid, Paper, Typography } from "@mui/material";
 import { formatDate } from "../../../lib/util/util";
@@ -12,6 +13,8 @@ export default function ActivityInfo({activity}: Props) {
     const [mapOpen, setMapOpen] = useState(false);
     return (
         <Paper sx={{ mb: 2 }}>
+            <Box sx={{ px: 2 }}><ActivityPeople activity={activity} /></Box>
+            <Divider />
 
             <Grid container alignItems="center" pl={2} py={1}>
                 <Grid size={1}>

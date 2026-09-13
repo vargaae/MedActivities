@@ -1,0 +1,65 @@
+/* Az eredeti eu-nav megjelenésének kiegészítése. */
+html { overflow-y: scroll; }
+@supports (scrollbar-gutter: stable) { html { scrollbar-gutter: stable; } }
+.eu-nav-enhanced .eu-nav-inner { max-width: 1560px; min-height: 90px; gap: 20px; }
+.eu-nav-enhanced .eu-brand { flex: 0 0 auto; }
+.eu-nav-enhanced .eu-brand img { width: 195px; height: 45px; object-fit: contain; }
+.eu-nav-enhanced .eu-nav-links { gap: 7px; }
+.eu-nav-enhanced .eu-nav-action { padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; transition: color .18s ease, background .18s ease, border-color .18s ease; }
+.eu-nav-enhanced .eu-nav-action:hover, .eu-nav-enhanced .eu-nav-action:focus-visible { background: #eef4fc; border-color: #dce8f7; color: var(--eu-blue); }
+.eu-nav-enhanced .eu-nav-action.active { background: #eaf1ff; color: var(--eu-blue); border-color: #d4e2fb; }
+.eu-nav-enhanced .eu-nav-action.active:after { display: none; }
+.eu-nav-enhanced .eu-nav-action svg { transition: transform .2s ease; }
+.eu-nav-enhanced .eu-nav-action:hover svg, .eu-nav-enhanced .eu-nav-action:focus-visible svg { transform: translateY(-3px) rotate(-7deg); }
+.eu-nav-enhanced .eu-nav-session { margin-left: auto; }
+.eu-user-trigger { font: inherit; cursor: pointer; text-align: left; transition: background .2s ease, box-shadow .2s ease; }
+.eu-user-trigger:hover { background: #e2edfc; box-shadow: 0 3px 10px #2356cf16; }
+.eu-user-copy { display: grid; gap: 3px; max-width: 165px; }.eu-user-copy strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }.eu-user-copy small { font-size: 10px; }
+.eu-user-chevron { transition: transform .2s ease !important; }.eu-user-chevron.is-open { transform: rotate(180deg); }
+.eu-user-popover-item {
+  width: 100%;
+  min-height: 48px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 10px 16px;
+
+  border: 0;
+  background: transparent;
+
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.eu-user-popover-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.eu-user-popover-item:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.eu-user-popover-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+@media (min-width: 1401px) { .eu-nav-enhanced .eu-nav-inner { flex-wrap: nowrap; }.eu-nav-enhanced .eu-nav-links { display: flex; position: static; width: auto; flex-direction: row; padding: 0; box-shadow: none; }.eu-nav-enhanced .eu-mobile-toggle { display: none; } }
+@media (max-width: 1400px) {
+ .eu-nav-enhanced .eu-nav-inner { height: 90px; flex-wrap: nowrap; justify-content: space-between; }
+ .eu-nav-enhanced .eu-mobile-toggle { display: inline-flex; margin-left: auto; }
+ .eu-nav-enhanced .eu-nav-links { display: none; position: absolute; top: 90px; left: 0; right: 0; width: 100%; flex-direction: column; align-items: stretch; padding: 14px 24px; background: #fff; box-shadow: 0 10px 20px #13284214; max-height: calc(100dvh - 90px); overflow-y: auto; }
+ .eu-nav-enhanced .eu-nav-links.is-open { display: flex; }
+ .eu-nav-enhanced .eu-nav-session { margin: 6px 0 0; }
+}
+@media (prefers-reduced-motion: reduce) { .eu-nav-enhanced *, .eu-nav-enhanced *:before, .eu-nav-enhanced *:after { transition: none !important; transform: none !important; } }

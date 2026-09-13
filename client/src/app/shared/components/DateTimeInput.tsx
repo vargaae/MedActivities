@@ -18,6 +18,9 @@ export default function DateTimeInput<T extends FieldValues>(props: Props<T>) {
             sx={{width: '100%'}}
             slotProps={{
                 textField: {
+                    id: String(props.name),
+                    name: String(props.name),
+                    inputProps: { name: String(props.name) },
                     onBlur: field.onBlur,
                     error: !!fieldState.error,
                     helperText: fieldState.error?.message,

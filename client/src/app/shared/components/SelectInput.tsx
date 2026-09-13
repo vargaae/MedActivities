@@ -12,8 +12,11 @@ export default function AppSelectInput<T extends FieldValues>(props: Props<T>) {
 
     return (
         <FormControl fullWidth error={!!fieldState.error}>
-            <InputLabel>{props.label}</InputLabel>
+            <InputLabel id={`${String(props.name)}-label`}>{props.label}</InputLabel>
             <Select
+                id={String(props.name)}
+                name={String(props.name)}
+                labelId={`${String(props.name)}-label`}
                 value={field.value || ''}
                 label={props.label}
                 onChange={field.onChange}

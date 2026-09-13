@@ -1,3 +1,5 @@
+type ActivityPerson = { id: string; name: string };
+
 type Activity = {
     id: string
     title: string
@@ -9,6 +11,13 @@ type Activity = {
     venue: string
     latitude: number
     longitude: number
+    canDelete: boolean
+    canEditFields: boolean
+    canEditAssignments: boolean
+    isAppointment: boolean
+    status: string
+    patients: ActivityPerson[]
+    practitioners: ActivityPerson[]
 }
 
 type LocationIQSuggestion = {
@@ -42,3 +51,17 @@ type LocationIQAddress = {
     country_code: string
     neighbourhood?: string
 }
+type ActivityWrite = {
+    status?: string;
+    id?: string;
+    title: string;
+    date: Date | string;
+    description: string;
+    category: string;
+    city: string;
+    venue: string;
+    latitude: number;
+    longitude: number;
+    patientId?: string;
+    practitionerIds?: string[];
+};

@@ -1,0 +1,14 @@
+<svg width="289" height="56" viewBox="0 0 289 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">EgészségÚt logó</title>
+  <desc id="desc">Kék és világoskék egészségügyi kereszt EgészségÚt felirattal.</desc>
+  <rect width="289" height="56" rx="10" fill="#FFFFFF"/>
+  <g transform="translate(8 6)">
+    <rect x="0" y="0" width="44" height="44" rx="11" fill="#EFF6FF"/>
+    <path d="M18 7H26C27.1046 7 28 7.89543 28 9V16H35C36.1046 16 37 16.8954 37 18V26C37 27.1046 36.1046 28 35 28H28V35C28 36.1046 27.1046 37 26 37H18C16.8954 37 16 36.1046 16 35V28H9C7.89543 28 7 27.1046 7 26V18C7 16.8954 7.89543 16 9 16H16V9C16 7.89543 16.8954 7 18 7Z" fill="#1D4ED8"/>
+    <path d="M22 7H26C27.1046 7 28 7.89543 28 9V16H35C36.1046 16 37 16.8954 37 18V22H22V7Z" fill="#7DD3FC"/>
+    <path d="M11 22H33" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.28"/>
+    <path d="M22 11V33" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.28"/>
+  </g>
+  <text x="64" y="31" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0">EgészségÚt</text>
+  <text x="65" y="45" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="9.5" font-weight="500" letter-spacing="0.4">egészségügyi eseménykezelő</text>
+</svg>
