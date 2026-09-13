@@ -1,239 +1,180 @@
 # EgészségÚt / MedActivities
 
-**Egészségügyi Eseménykezelő Rendszer / Healthcare Activity and Patient Management System**
+Egészségügyi esemény-, páciens- és időpontkezelő rendszer, amely közös REST API-n keresztül támogatja a páciensek, kezelőorvosok és egészségügyi adminisztrátorok munkáját webes és Windows Forms kliensből.
 
-## Leírás
+## Projektállapot
 
-Az **EgészségÚt (MedActivities)** egy többplatformos egészségügyi eseménykezelő és pácienskezelő rendszer.
+Elkészült vagy részben elkészült:
 
-A rendszer célja, hogy segítse a páciensek és az egészségügyi dolgozók közötti kommunikációt, valamint nyomon kövesse a betegút eseményeit, vizsgálatait, kezeléseit és dokumentumait.
+- ASP.NET Core Web API .NET 10 alapon
+- Domain, Application és Persistence rétegek
+- ASP.NET Identity alapú autentikáció és szerepkörkezelés
+- Páciens, kezelőorvos és egészségügyi esemény CRUD API
+- Páciens–orvos hozzáférések, munkaidő és foglalási beállítások
+- Időpontfoglalás, szabad időpontok és lemondás
+- React + TypeScript webes kliens és adminisztrációs oldalak
+- SQLite alapú fejlesztői adatbázis és EF Core migrationök
 
-A projekt a BMSZC szoftverfejlesztő képzés vizsgaremeke.
+Következő feladatok:
 
----
+- Időpont-módosítás és teljes időpont CRUD lezárása
+- Dokumentum- és megjegyzéskezelés teljes CRUD-ja
+- React felületek egységesítése
+- Windows Forms kliens létrehozása
+- Integrációs tesztek
+- SQLite kiváltása Microsoft SQL Serverrel
 
-# Fő funkciók
+## Fő funkciók
 
-## Páciens felület (React)
+### Páciens
 
-- Regisztráció
-- Bejelentkezés
-- Időpontfoglalás
+- Regisztráció és bejelentkezés
+- Saját profil kezelése
 - Egészségügyi események megtekintése
-- Dokumentumok kezelése
-- Saját profil
-- Betegút követése
+- Időpontfoglalás és lemondás
+- Dokumentumok és megjegyzések megtekintése
 
----
+### Kezelőorvos és egészségügyi dolgozó
 
-## Egészségügyi dolgozói felület (Windows Forms)
+- Páciensek, kezelőorvosok és események kezelése
+- Páciens- és kezelőhozzárendelések kezelése
+- Munkaidő és foglalási szabályok kezelése
+- Időpontok és státuszok kezelése
+- Dokumentumok és megjegyzések kezelése
 
-- Páciensek kezelése
-- Egészségügyi események kezelése
-- Időpontok kezelése
-- Dokumentumok kezelése
-- Megjegyzések kezelése
-- Adminisztráció
+## Technológiák
 
----
+- Backend: ASP.NET Core Web API, .NET 10, Entity Framework Core 10, ASP.NET Identity, MediatR, AutoMapper
+- Web: React 19, TypeScript, Vite, React Router, React Query, React Hook Form, Zod, Material UI
+- Desktop: Windows Forms, .NET 10
+- Adatbázis: jelenleg SQLite, a végleges cél Microsoft SQL Server
 
-# Technológiák
+## Architektúra
 
-## Backend
-
-- ASP.NET Core Web API (.NET 10)
-- Entity Framework Core
-- PostgreSQL
-- ASP.NET Identity
-- AutoMapper
-- SignalR
-
-## Frontend
-
-- React 19
-- TypeScript
-- React Query
-- React Router
-- React Hook Form
-- Zod
-- Material UI
-
-## Desktop
-
-- Windows Forms (.NET)
-
----
-
-# Architektúra
-
-A projekt RESTful architektúrát alkalmaz.
-
-```
-React
-        \
-         \
-          ASP.NET Core Web API
-         /
-Windows Forms
-
-            │
-
-      PostgreSQL
+```text
+React webes kliens ─────┐
+                        ├── ASP.NET Core Web API ─── Persistence ─── Adatbázis
+Windows Forms kliens ───┘              │
+                                      └── Domain / Application
 ```
 
-A backend biztosítja:
+A kliensek nem közvetlenül kapcsolódnak az adatbázishoz. Az autentikáció, jogosultság-ellenőrzés és üzleti logika az API-ban található.
 
-- autentikáció
-- jogosultságkezelés
-- CRUD műveletek
-- üzleti logika
+## Projektstruktúra
 
----
-
-# Projekt struktúra
-
-```
-api/
-application/
-domain/
-infrastructure/
-persistence/
-client/
-desktop/
+```text
+API/          ASP.NET Core Web API és kontrollerek
+Application/  Use case-ek, DTO-k, lekérdezések és parancsok
+Domain/       Entitások és domain típusok
+Persistence/  EF Core DbContext, Identity és migrationök
+client/       React webes kliens
+client-dev/   Fejlesztői frontend változat
+Desktop/      Tervezett Windows Forms kliens
 ```
 
----
-
-# Fejlesztői környezet
-
-Szükséges:
+## Szükséges környezet
 
 - .NET 10 SDK
-- Node.js
-- PostgreSQL
-- Docker Desktop (opcionális)
-- Visual Studio 2022
-- Visual Studio Code
+- Node.js és npm
+- Visual Studio 2022 vagy újabb
+- Microsoft SQL Server
+- SQL Server Management Studio vagy Azure Data Studio
 
----
+## Indítás fejlesztői SQLite-tal
 
-# Indítás
+API:
 
-Backend
-
-```bash
-dotnet watch run
+```powershell
+dotnet restore
+dotnet build
+dotnet run --project API/API.csproj
 ```
 
-Frontend
+React kliens:
 
-```bash
+```powershell
+cd client
 npm install
 npm run dev
 ```
 
-Desktop
+A fejlesztői SQLite connection string az `API/appsettings.Development.json` fájlban található; az adatbázis neve `activities.db`.
 
-Visual Studio → Start
+## EF Core migrationök
 
----
-
-# Branch stratégia
-
-```
-main
-develop
-
-feature/JIRA-XX-login
-feature/JIRA-XX-patient-crud
-feature/JIRA-XX-react-login
-feature/JIRA-XX-desktop-admin
-
-bugfix/JIRA-XX
-
-hotfix/JIRA-XX
+```powershell
+dotnet ef database update --project Persistence/Persistence.csproj --startup-project API/API.csproj
+dotnet ef migrations add MigrationName --project Persistence/Persistence.csproj --startup-project API/API.csproj
 ```
 
----
+## Windows Forms kliens
 
-# Commit szabály
+A WinForms projekt a következő fejlesztési ütemben kerül a solutionbe. Az alkalmazás az API-t használja, és a következő képernyőket tartalmazza:
 
-Formátum
+1. Bejelentkezés
+2. Főmenü/dashboard
+3. Páciensek kezelése
+4. Kezelőorvosok kezelése
+5. Egészségügyi események kezelése
+6. Időpontok és státuszok kezelése
+7. Dokumentumok és megjegyzések
 
-```
-JIRA-XX type: rövid leírás
-```
+## MS SQL Serverre átállás
 
-Példák
+Az átállás a CRUD-funkciók és a WinForms kliens stabilizálása után történik:
 
-```
-MED-12 feat: implement JWT authentication
+1. `Microsoft.EntityFrameworkCore.SqlServer` hozzáadása.
+2. SQLite provider és SQLite-specifikus kódok eltávolítása.
+3. `UseSqlite` lecserélése `UseSqlServer` hívásra.
+4. SQL Server connection string beállítása.
+5. SQL Serverhez illeszkedő migrationök létrehozása.
+6. Adatbázis, seed adatok és szerepkörök ellenőrzése.
+7. API-, React- és WinForms-integrációs tesztelés.
 
-MED-18 feat: add patient CRUD endpoints
+Példa:
 
-MED-25 fix: resolve appointment validation
-
-MED-30 refactor: simplify activity query
-
-MED-42 docs: update README
-```
-
----
-
-# Commit típusok
-
-- feat
-- fix
-- refactor
-- docs
-- style
-- test
-- chore
-
----
-
-# Pull Request
-
-Minden feature külön branch-ben készül.
-
-```
-feature → develop
-
-develop → main
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=MedActivities;Trusted_Connection=True;TrustServerCertificate=True"
+  }
+}
 ```
 
-A merge előtt:
+Connection stringet ne tölts fel verziókezelésbe; használj User Secrets-t vagy környezeti változót.
 
-- build sikeres
-- tesztek lefutnak
-- code review megtörtént
+## 12 órás befejezési sorrend
 
----
+1. API CRUD-kiegészítések és validációk
+2. Időpontkezelés lezárása
+3. Dokumentum- és megjegyzéskezelés
+4. React felületek véglegesítése
+5. Windows Forms projekt, bejelentkezés és navigáció
+6. WinForms páciens-, orvos-, esemény- és időpontkezelés
+7. Integrációs tesztelés
+8. MS SQL Server provider, konfiguráció és migrationök
+9. Regressziós teszt és dokumentációfrissítés
 
-# Fejlesztők
+## Kiadás előtti ellenőrzés
+
+- `dotnet build` és React production build sikeres
+- Minden CRUD végpont jogosultságot és bemenetet ellenőriz
+- Kapcsolt rekordok törlése megfelelően kezelt
+- Foglalási ütközések tesztelve
+- A webes és a WinForms kliens ugyanazt az API-t használja
+- SQL Serveren minden migration sikeresen lefut
+- Tesztfelhasználók és szerepkörök dokumentálva vannak
+
+## Fejlesztési konvenciók
+
+Commit formátum:
+
+```text
+MED-XX type: rövid leírás
+```
+
+Típusok: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+
+## Készítő
 
 **Varga András Ernő**
-
-- Backend
-- Database
-- Windows Forms
-- REST API
-- React frontend
-- UI/UX
-- API integráció
-- Tesztelés
-
-**Maloschik Erik**
-
-- Backend
-- React frontend
-- Windows Forms
-- UI/UX
-- API integráció
-- Tesztelés
-
----
-
-# Projekt állapot
-
-🚧 Fejlesztés alatt
