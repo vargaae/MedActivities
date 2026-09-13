@@ -48,7 +48,7 @@ export default function ActivityCard({ activity }: Props) {
             <Chip label={label} color={color} sx={{ borderRadius: 2 }} />
           )}
           {isCancelled && (
-            <Chip label="Cancelled" color="error" sx={{ borderRadius: 2 }} />
+            <Chip label="Lemondva" color="error" sx={{ borderRadius: 2 }} />
           )}
         </Box>
       </Box>
@@ -83,9 +83,10 @@ export default function ActivityCard({ activity }: Props) {
           color="primary"
           sx={{ display: "flex", justifySelf: "self-end", borderRadius: 3 }}
         >
-          View
+          Megtekintés
         </Button>
       </CardContent>
     </Card>
   );
 }
+

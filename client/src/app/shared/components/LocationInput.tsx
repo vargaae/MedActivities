@@ -64,6 +64,8 @@ export default function LocationInput<T extends FieldValues>(props: Props<T>) {
         <Box>
             <TextField
                 {...props}
+                id={String(props.name)}
+                name={String(props.name)}
                 value={inputValue}
                 onChange={e => handleChange(e.target.value)}
                 fullWidth

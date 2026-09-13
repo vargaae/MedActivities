@@ -21,6 +21,6 @@ public class AccountsController(UserManager<AppUser> users,AppDbContext db,Acces
         if(!result.Succeeded && !await users.IsInRoleAsync(u,input.Role))return BadRequest(result.Errors.Select(e=>e.Description));
         if(input.Role=="Admin"&&!await db.AdminProfiles.AnyAsync(p=>p.UserId==id))db.AdminProfiles.Add(new(){UserId=id,Name=input.Name});
         if(input.Role=="AdmissionsOffice"&&!await db.AdmissionsOfficeProfiles.AnyAsync(p=>p.UserId==id))db.AdmissionsOfficeProfiles.Add(new(){UserId=id,Name=input.Name});
-        await db.SaveChangesAsync();await tx.CommitAsync();return NoContent();
+        MedSetup.Check(await users.UpdateSecurityStampAsync(u));await db.SaveChangesAsync();await tx.CommitAsync();return NoContent();
     }
 }

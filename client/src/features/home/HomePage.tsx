@@ -105,7 +105,7 @@ export default function HomePage() {
               className="eu-button eu-button-primary"
               onClick={() => setAuthOpen(true)}
             >
-              Login or Register <ArrowForwardRounded />
+              Belépés / regisztráció <ArrowForwardRounded />
             </button>
             <Link className="eu-text-link" to="/activities">
               Események megtekintése <ArrowOutwardRounded fontSize="small" />

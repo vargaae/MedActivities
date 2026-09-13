@@ -4,6 +4,7 @@ import agent from '../api/agent';
 import { getActivityToken, getActivitySessionVersion, subscribeActivitySession } from '../api/activitySession';
 
 export type ActivityAssignmentOptions = {
+    userName: string;
     userId: string;
     roles: string[];
     canCreate: boolean;

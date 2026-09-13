@@ -9,7 +9,7 @@ export const useActivities = (id?: string) => {
     const sessionVersion = useSyncExternalStore(subscribeActivitySession, getActivitySessionVersion);
     const location = useLocation();
 
-    const { isLoading: isPending, data: activities } = useQuery({
+    const { isLoading: isPending, data: activities, isError } = useQuery({
         queryKey: ['activities', 'list', sessionVersion],
         queryFn: async ({ signal }) => {
             const response = await agent.get<Activity[]>('/activities', { signal });
@@ -32,6 +32,7 @@ export const useActivities = (id?: string) => {
             await agent.put('/activities', activityWritePayload(activity));
         },
         onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['booking'] });
             await queryClient.invalidateQueries({
                 queryKey: ['activities']
             })
@@ -44,6 +45,7 @@ export const useActivities = (id?: string) => {
             return response.data;
         },
         onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['booking'] });
             await queryClient.invalidateQueries({
                 queryKey: ['activities']
             })
@@ -55,14 +57,15 @@ export const useActivities = (id?: string) => {
             await agent.delete(`/activities/${id}`);
         },
         onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['booking'] });
             await queryClient.invalidateQueries({
-                queryKey: ['activities']
+                queryKey: ['activities', 'list']
             })
         }
     })
 
     return {
-        activities,
+        activities, isError,
         isPending,
         updateActivity,
         createActivity,
@@ -73,9 +76,13 @@ export const useActivities = (id?: string) => {
 }
 function activityWritePayload(a: ActivityWrite) {
     return {
-        id: a.id, title: a.title, date: a.date, description: a.description,
+        status: a.status, id: a.id, title: a.title, date: a.date instanceof Date ? localDateTime(a.date) : a.date, description: a.description,
         category: a.category, city: a.city, venue: a.venue,
         latitude: a.latitude, longitude: a.longitude,
         patientId: a.patientId, practitionerIds: a.practitionerIds
     };
+}
+function localDateTime(date: Date) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }

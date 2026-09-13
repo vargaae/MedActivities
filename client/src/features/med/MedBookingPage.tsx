@@ -1,37 +1,77 @@
-import { useState } from "react";
-type Patient = { id: string; name: string };
-type Practitioner = { id: string; name: string; bookingEnabled: boolean };
-type Appointment = { id: string; startTime: string; activityId: string; status: number };
-export default function MedBookingPage({ apiBase = "" }: { apiBase?: string }) {
-  const [token, setToken] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
-  const [patients, setPatients] = useState<Patient[]>([]); const [doctors, setDoctors] = useState<Practitioner[]>([]);
-  const [patientId, setPatientId] = useState(""); const [practitionerId, setPractitionerId] = useState("");
-  const [date, setDate] = useState(""); const [slots, setSlots] = useState<number[]>([]); const [items, setItems] = useState<Appointment[]>([]);
-  const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
-  async function request(path: string, method = "GET", body?: unknown, auth = token) {
-    const response = await fetch(apiBase + path, { method, headers: { "Content-Type": "application/json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
-    return response.status === 204 ? undefined : response.json();
-  }
-  async function run(action: () => Promise<void>) { setBusy(true); setMessage(""); try { await action(); } catch (error) { setMessage(error instanceof Error ? error.message : "Hiba történt."); } finally { setBusy(false); } }
-  async function load(auth = token) { setPatients(await request("/api/patients", "GET", undefined, auth)); setDoctors(await request("/api/practitioners", "GET", undefined, auth)); setItems(await request("/api/appointments", "GET", undefined, auth)); }
-  async function refreshSlots() { setSlots(await request(`/api/appointments/slots?practitionerId=${encodeURIComponent(practitionerId)}&date=${date}`)); }
-  return <main style={{ maxWidth: 760, margin: "2rem auto", fontFamily: "sans-serif" }}>
-    <h1>EgészségÚt – időpontfoglalás</h1><p role="status">{message}</p>
-    {!token ? <form onSubmit={e => { e.preventDefault(); void run(async () => { const result = await request("/api/auth/login?useCookies=false", "POST", { email, password }); setToken(result.accessToken); setPassword(""); await load(result.accessToken); }); }}>
-      <label>Email <input type="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>{" "}
-      <label>Jelszó <input type="password" required value={password} onChange={e => setPassword(e.target.value)} /></label><button disabled={busy}>Belépés</button>
-    </form> : <>
-      <button onClick={() => { setToken(""); setPatients([]); setDoctors([]); setItems([]); setSlots([]); setPatientId(""); setPractitionerId(""); }}>Kilépés az oldalról</button>
-      <fieldset disabled={busy}><legend>Új időpont</legend>
-        <label>Páciens <select value={patientId} onChange={e => setPatientId(e.target.value)}><option value="">Válassz</option>{patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{" "}
-        <label>Kezelő <select value={practitionerId} onChange={e => { setPractitionerId(e.target.value); setSlots([]); }}><option value="">Válassz</option>{doctors.filter(d => d.bookingEnabled).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>{" "}
-        <label>Dátum <input type="date" value={date} onChange={e => { setDate(e.target.value); setSlots([]); }} /></label>
-        <button disabled={!date || !practitionerId} onClick={() => void run(async () => { await refreshSlots(); setMessage("A választható órák lent jelennek meg. Üres lista: nincs szabad időpont."); })}>Szabad időpontok</button>
-        <div>{slots.map(hour => <button key={hour} disabled={!patientId} onClick={() => void run(async () => { await request("/api/appointments", "POST", { patientId, practitionerId, date, hour, note: null }); await load(); await refreshSlots(); setMessage("Sikeres foglalás."); })}>{hour}:00</button>)}</div>
-      </fieldset>
-      <h2>Foglalásaim</h2><button disabled={busy} onClick={() => void run(() => load())}>Frissítés</button>
-      <ul>{items.map(a => <li key={a.id}>{a.startTime.replace("T", " ")} – {a.status === 1 ? "Lemondva" : "Rögzítve"} {a.status === 0 && <button disabled={busy} onClick={() => void run(async () => { await request(`/api/appointments/${a.id}/cancel`, "POST"); await load(); if (date && practitionerId) await refreshSlots(); })}>Lemondás</button>}</li>)}</ul>
-    </>}
-  </main>;
+import { useState } from 'react';
+import { Alert, Box, Button, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
+import agent from '../../lib/api/agent';
+import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
+import ActivityLogin from '../activities/form/ActivityLogin';
+type Person = { id: string; name: string; bookingEnabled?: boolean };
+type Appointment = { id: string; startTime: string; activityId: string; status: number; patientId: string; practitionerId: string };
+export default function MedBookingPage() {
+    const session = useActivityAccess();
+    return <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Typography variant="h4" sx={{ mb: 2 }}>Időpontfoglalás</Typography>
+        <ActivityLogin />
+        {session.authenticated && <BookingEditor key={session.version} version={session.version} />}
+    </Paper>;
 }
+function BookingEditor({ version }: { version: number }) {
+    const session = useActivityAccess();
+    const cache = useQueryClient();
+    const [patientId, setPatientId] = useState('');
+    const [practitionerId, setPractitionerId] = useState('');
+    const [date, setDate] = useState('');
+    const [message, setMessage] = useState('');
+    const canBook = !!session.data && (session.data.canAssign || !session.data.isPractitioner);
+    const people = useQuery({ queryKey: ['booking', 'people', version], queryFn: async ({ signal }) => {
+        const [patients, doctors] = await Promise.all([agent.get<Person[]>('/patients', { signal }), agent.get<Person[]>('/practitioners', { signal })]);
+        return { patients: patients.data, doctors: doctors.data };
+    }});
+    const appointments = useQuery({ queryKey: ['booking', 'appointments', version], queryFn: async ({ signal }) => (await agent.get<Appointment[]>('/appointments', { signal })).data });
+    const validAppointments = (appointments.data ?? []).filter(
+        (appointment): appointment is Appointment => Boolean(appointment?.id && appointment.startTime)
+    );
+    const statusLabels = ['Rögzítve', 'Lemondva', 'Befejezett', 'Nem jelent meg'];
+    const slots = useQuery({ queryKey: ['booking', 'slots', version, practitionerId, date], enabled: !!date && !!practitionerId && canBook,
+        queryFn: async ({ signal }) => (await agent.get<number[]>('/appointments/slots', { params: { practitionerId, date }, signal })).data });
+    const selectedPatient = patientId || (people.data?.patients.length === 1 ? people.data.patients[0].id : '');
+    const refresh = async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['booking'] }), cache.invalidateQueries({ queryKey: ['activities'] })]); };
+    const book = useMutation({ mutationFn: async (hour: number) => {
+        await agent.post('/appointments', { patientId: selectedPatient, practitionerId, date, hour, note: null });
+    }, onSuccess: async () => { setMessage('Sikeres foglalás. Az esemény a páciensnél és a kezelőorvosnál is megjelenik.'); await refresh(); }, onError: async () => { setMessage('A foglalás nem sikerült. Ellenőrizd a szabad időpontokat és a napi korlátot.'); await slots.refetch(); }});
+    const cancel = useMutation({ mutationFn: async (id: string) => { await agent.post(`/appointments/${id}/cancel`); }, onSuccess: refresh });
+    const busy = book.isPending || cancel.isPending;
+    return <Box sx={{ display: 'grid', gap: 2 }}>
+        {people.isError || appointments.isError ? <Alert severity="error">Az adatok nem tölthetők be. Ellenőrizd a belépést.</Alert> : null}
+        {message && <Alert severity={book.isError ? 'error' : 'info'}>{message}</Alert>}
+        {cancel.isError && <Alert severity="error">A lemondás nem sikerült. Csak jövőbeli foglalás mondható le.</Alert>}
+        {canBook ? <Box component="fieldset" disabled={busy || people.isPending} sx={{ display: 'grid', gap: 2, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
+            <legend>Új időpont</legend>
+            <TextField id="booking-patient" name="patientId" select label="Páciens" value={selectedPatient} onChange={e => setPatientId(e.target.value)}>
+                <MenuItem value="">Válassz pácienst…</MenuItem>
+                {people.data?.patients.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+            </TextField>
+            <TextField id="booking-practitioner" name="practitionerId" select label="Kezelőorvos" value={practitionerId} onChange={e => { setPractitionerId(e.target.value); setMessage(''); }}>
+                <MenuItem value="">Válassz kezelőorvost…</MenuItem>
+                {people.data?.doctors.filter(d => d.bookingEnabled).map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+            </TextField>
+            {people.data && !people.data.doctors.some(d => d.bookingEnabled) && <Alert severity="info">Nincs engedélyezett kezelőorvos. Az adminnak engedélyeznie kell a foglalást, és munkaidőt kell beállítani.</Alert>}
+            <TextField id="booking-date" name="date" type="date" label="Dátum" slotProps={{ inputLabel: { shrink: true } }} value={date} onChange={e => { setDate(e.target.value); setMessage(''); }} />
+            {slots.isFetching && <Typography>Szabad időpontok betöltése…</Typography>}
+            {slots.isError && <Alert severity="error">A szabad időpontok nem tölthetők be.</Alert>}
+            {date && practitionerId && slots.data?.length === 0 && <Alert severity="info">Erre a napra nincs szabad, foglalható időpont.</Alert>}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>{slots.data?.map(hour => <Button key={hour} variant="outlined" disabled={busy || !selectedPatient || slots.isFetching} onClick={() => { setMessage(''); book.mutate(hour); }}>{hour}:00–{hour + 1}:00</Button>)}</Box>
+        </Box> : <Alert severity="info">Kezelőorvosként a hozzád tartozó foglalásokat látod. Új időpontot páciens vagy adminisztratív munkatárs foglalhat.</Alert>}
+        <Typography variant="h5">Foglalások</Typography>
+        <Button onClick={() => void refresh()} disabled={busy}>Frissítés</Button>
+        {appointments.isPending && <Typography>Betöltés…</Typography>}
+        {validAppointments.length === 0 && <Typography>Nincs foglalás.</Typography>}
+        {validAppointments.map(a => <Paper variant="outlined" key={a.id} sx={{ p: 2 }}>
+            <Typography>{a.startTime.replace('T', ' ')} – {statusLabels[a.status] ?? 'Ismeretlen állapot'}</Typography>
+            <Typography>{people.data?.patients.find(p => p.id === a.patientId)?.name} · {people.data?.doctors.find(p => p.id === a.practitionerId)?.name}</Typography>
+            <Button component={Link} to={`/activities/${a.activityId}`}>Esemény megnyitása</Button>
+            {a.status === 0 && new Date(a.startTime).getTime() > Date.now() && <Button color="warning" disabled={busy} onClick={() => cancel.mutate(a.id)}>Foglalás lemondása</Button>}
+        </Paper>)}
+    </Box>;
+}
+

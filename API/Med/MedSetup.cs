@@ -7,6 +7,7 @@ namespace API.Med;
 public static class MedSetup
 {
     public static IServiceCollection AddMedActivities(this IServiceCollection services) {
+        services.Configure<IdentityOptions>(o=>o.User.RequireUniqueEmail=true);
         services.AddHttpContextAccessor();services.AddScoped<AccessService>();services.AddScoped<BookingService>();
         services.AddIdentityApiEndpoints<AppUser>().AddRoles<IdentityRole>().AddEntityFrameworkStores<AppDbContext>();
         services.AddAuthorization();return services;
@@ -42,3 +43,4 @@ public static class MedSetup
     }
     public static void Check(IdentityResult r){if(!r.Succeeded)throw new InvalidOperationException(string.Join("; ",r.Errors.Select(e=>e.Description)));}
 }
+

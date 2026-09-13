@@ -11,6 +11,7 @@ type Activity = {
     venue: string
     latitude: number
     longitude: number
+    canDelete: boolean
     canEditFields: boolean
     canEditAssignments: boolean
     isAppointment: boolean
@@ -51,6 +52,7 @@ type LocationIQAddress = {
     neighbourhood?: string
 }
 type ActivityWrite = {
+    status?: string;
     id?: string;
     title: string;
     date: Date | string;

@@ -38,6 +38,7 @@ app.UseCors("CorsPolicy");
 
 app.UseMedActivitiesGuard();
 app.UseAuthentication();
+app.UseMedSessionValidation();
 app.UseDemoSessionBoundary();
 app.UseAuthorization();
 app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
@@ -60,3 +61,4 @@ catch (Exception ex)
 }
 
 app.Run();
+

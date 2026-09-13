@@ -11,6 +11,7 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
 {
     [HttpGet] public async Task<IActionResult> List()=>Ok(await db.Practitioners.Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).ToListAsync());
     [HttpGet("{id}")] public async Task<IActionResult> Details(string id) {
+        if(access.Staff) { var full=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new{p.Id,p.Name,p.TajNumber,p.UserId,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync(); return full is null?NotFound():Ok(full); }
         var p=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync();
         return p is null?NotFound():Ok(p);
     }

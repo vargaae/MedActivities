@@ -13,6 +13,8 @@ export default function TextInput<T extends FieldValues>(props: Props<T>) {
         <TextField
             {...props}
             {...field}
+            id={String(props.name)}
+            name={String(props.name)}
             value={field.value || ''}
             fullWidth
             variant="outlined"

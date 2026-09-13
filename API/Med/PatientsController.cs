@@ -40,6 +40,8 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
         if(!await users.IsInRoleAsync(u,"Patient")) return BadRequest("Először rendelj Patient role-t a felhasználóhoz.");
         p.UserId=u.Id; await db.SaveChangesAsync(); return NoContent();
     }
+    [HttpGet("{id}/access"),Authorize(Roles="Admin,AdmissionsOffice")]
+    public async Task<IActionResult> AccessList(string id)=>Ok(await db.PatientPractitionerAccesses.Where(a=>a.PatientId==id).Select(a=>new{Id=a.PractitionerId,a.Practitioner.Name}).ToListAsync());
     [HttpPut("{id}/access/{practitionerId}"), Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> Grant(string id,string practitionerId) {
         if(!await db.Patients.AnyAsync(p=>p.Id==id) || !await db.Practitioners.AnyAsync(p=>p.Id==practitionerId)) return NotFound();

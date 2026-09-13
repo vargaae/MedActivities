@@ -19,19 +19,20 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
     [HttpGet, AllowAnonymous]
     public async Task<IActionResult> GetActivities(CancellationToken ct)
     {
-        if (!Authenticated && !environment.IsDevelopment()) return Unauthorized();
+        if (!Authenticated) return Unauthorized();
         return Ok(await Visible().AsNoTracking().OrderBy(a=>a.Date).Select(ActivityDto.Projection).ToListAsync(ct));
     }
 
     [HttpGet("{id}"), AllowAnonymous]
     public async Task<IActionResult> GetActivity(string id,CancellationToken ct)
     {
-        if (!Authenticated && !environment.IsDevelopment()) return Unauthorized();
+        if (!Authenticated) return Unauthorized();
         var dto=await Visible().AsNoTracking().Where(a=>a.Id==id).Select(ActivityDto.Projection).SingleOrDefaultAsync(ct);
         if(dto is null)return NotFound();
         dto.IsAppointment=await db.Appointments.AnyAsync(a=>a.ActivityId==id,ct);
         dto.CanEditFields=Authenticated && (access.Staff || (!dto.IsAppointment &&
             (User.IsInRole("Patient") || User.IsInRole("Practitioner"))));
+        dto.CanDelete=Authenticated && access.Staff;
         dto.CanEditAssignments=dto.CanEditFields && access.Staff;
         return Ok(dto);
     }
@@ -46,7 +47,7 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         var patients=access.Staff ? db.Patients : User.IsInRole("Practitioner")
             ? access.Patients() : db.Patients.Where(p=>false);
         return Ok(new {
-            userId=access.UserId, roles=User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c=>c.Value).ToArray(), canCreate, canAssign=access.Staff,
+            userName=User.Identity?.Name ?? "", roles=User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c=>c.Value).ToArray(), userId=access.UserId, canCreate, canAssign=access.Staff,
             isPractitioner=User.IsInRole("Practitioner"), ownPractitioner=own,
             patients=await patients.OrderBy(p=>p.Name).Select(p=>new {p.Id,p.Name}).ToListAsync(ct),
             practitioners=await (access.Staff ? db.Practitioners : db.Practitioners.Where(p=>false))
@@ -93,8 +94,8 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
             .SingleOrDefaultAsync(a=>a.Id==input.Id,ct);
         if(activity is null)return NotFound();
         var appointment=await db.Appointments.SingleOrDefaultAsync(a=>a.ActivityId==activity.Id,ct);
-        if(appointment is not null && (!access.Staff || input.Date!=activity.Date))
-            return Conflict(new {message="Foglalási eseménynél itt csak admin/felvételi iroda módosíthat; az időpontot a foglalási folyamatban változtasd."});
+        if(appointment is not null && !access.Staff)
+            return Conflict(new {message="Foglalási eseménynél itt csak admin/felvételi iroda módosíthat; jelentkezz be megfelelő szerepkörrel."});
         if(access.Staff)
         {
             if(string.IsNullOrWhiteSpace(input.PatientId) || !await db.Patients.AnyAsync(p=>p.Id==input.PatientId,ct))
@@ -108,12 +109,6 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
                 // Ha eltávolítják, a kérés első kezelője veszi át a foglalást.
                 var primary=ids.Contains(appointment.PractitionerId)
                     ? appointment.PractitionerId : input.PractitionerIds![0];
-                if(primary!=appointment.PractitionerId && appointment.Status!=AppointmentStatus.Cancelled)
-                {
-                    if(appointment.Status!=AppointmentStatus.Booked ||
-                        !(await booking.Slots(primary,appointment.BookingDate)).Contains(appointment.StartTime.Hour))
-                        return Conflict(new {message="Az új főkezelőnél ez az időpont nem foglalható."});
-                }
                 appointment.PatientId=input.PatientId;
                 appointment.PractitionerId=primary;
             }
@@ -130,19 +125,25 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
             if(input.PatientId is not null && !activity.PatientActivities.Select(p=>p.PatientId).ToHashSet().SetEquals([input.PatientId]))return Forbid();
             if(input.PractitionerIds is not null && !activity.ActivityPractitioners.Select(p=>p.PractitionerId).ToHashSet().SetEquals(input.PractitionerIds))return Forbid();
         }
-        Apply(activity,input);activity.UpdatedAt=DateTime.UtcNow;activity.UpdatedByUserId=access.UserId;
+        var status=input.Status ?? activity.Status;
+        Apply(activity,input);
+        if(appointment is not null)await booking.Sync(activity,appointment,input.Date,status);
+        activity.UpdatedAt=DateTime.UtcNow;activity.UpdatedByUserId=access.UserId;
         await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return NoContent();
     }
 
     [HttpDelete("{id}"),Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> DeleteActivity(string id,CancellationToken ct)
     {
+        await using var tx=await db.Database.BeginTransactionAsync(ct);
         var activity=await db.Activities.FindAsync([id],ct);if(activity is null)return NotFound();
-        if(await db.Appointments.AnyAsync(a=>a.ActivityId==id,ct))return Conflict(new {message="Foglalási esemény nem törölhető itt."});
-        db.Activities.Remove(activity);await db.SaveChangesAsync(ct);return NoContent();
+        var appointment=await db.Appointments.SingleOrDefaultAsync(a=>a.ActivityId==id,ct);
+        if(appointment is not null){db.Appointments.Remove(appointment);await db.SaveChangesAsync(ct);}
+        db.Activities.Remove(activity);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return NoContent();
     }
     static void Apply(Activity a,ActivityWriteInput i)
     {
+        if(i.Status is not null){a.Status=i.Status;a.IsCancelled=i.Status=="Cancelled";}
         a.Title=i.Title.Trim();a.Date=i.Date;a.Description=i.Description;a.Category=i.Category;
         a.City=i.City;a.Venue=i.Venue;a.Latitude=i.Latitude;a.Longitude=i.Longitude;
     }
