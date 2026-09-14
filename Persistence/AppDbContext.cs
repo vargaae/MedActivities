@@ -18,9 +18,20 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<PatientDocument> PatientDocuments => Set<PatientDocument>();
     public DbSet<PatientNote> PatientNotes => Set<PatientNote>();
+    public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
+    public DbSet<DeletedRecord> DeletedRecords => Set<DeletedRecord>();
+    public string? AuditUserId { get; set; }
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.Entity<ActivityComment>().HasOne(c => c.Activity).WithMany().HasForeignKey(c => c.ActivityId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ActivityComment>().Property(c => c.Body).HasMaxLength(2000);
+        b.Entity<ActivityComment>().Property(c => c.DisplayName).HasMaxLength(256);
+        b.Entity<ActivityComment>().HasIndex(c => new { c.ActivityId, c.CreatedAt });
+        b.Entity<DeletedRecord>().Property(d => d.TableName).HasMaxLength(128);
+        b.Entity<DeletedRecord>().Property(d => d.RecordKey).HasMaxLength(512);
+        b.Entity<DeletedRecord>().Property(d => d.DeletedBy).HasMaxLength(256);
+        b.Entity<DeletedRecord>().HasIndex(d => new { d.TableName, d.DeletedAtUtc });
         b.Entity<PatientDocument>().HasOne(d => d.Patient).WithMany().HasForeignKey(d => d.PatientId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<PatientDocument>().HasOne<AppUser>().WithMany().HasForeignKey(d => d.UploadedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<PatientDocument>().Property(d => d.Title).HasMaxLength(200);
@@ -67,6 +78,9 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
         });
         if (sqlServer)
         {
+            // SQL Server tables with DELETE triggers cannot use EF's bare OUTPUT clause.
+            foreach (var entity in b.Model.GetEntityTypes().Where(e => e.ClrType.Namespace == "Domain" && e.ClrType != typeof(DeletedRecord)))
+                b.Entity(entity.ClrType).ToTable(t => t.UseSqlOutputClause(false));
             // A többszörös összetett kulcsok is a SQL Server indexméret-határa alatt maradnak.
             foreach (var property in b.Model.GetEntityTypes().SelectMany(e => e.GetProperties())
                 .Where(p => p.ClrType == typeof(string) && (p.Name == "Id" || p.Name.EndsWith("Id"))))

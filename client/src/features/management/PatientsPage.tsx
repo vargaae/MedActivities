@@ -11,23 +11,25 @@ type EventItem = { id: string; title: string; date: string; status: string };
 const blank = { id: '', name: '', tajNumber: '', birthDate: '', email: '', phone: '', address: '', notes: '' };
 export default function PatientsPage() {
     const session = useActivityAccess(); const cache = useQueryClient(); const admin = session.data?.roles.includes('Admin');
+    const staff = !!session.data?.canAssign;
     const [form, setForm] = useState<Patient | null>(null); const [selected, setSelected] = useState<Patient | null>(null); const [remove, setRemove] = useState<Patient | null>(null);
     const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [search, setSearch] = useState(''); const [userId, setUserId] = useState(''); const [doctorId, setDoctorId] = useState('');
     const list = useQuery({ queryKey: ['patients', session.version], queryFn: async ({ signal }) => (await agent.get<Patient[]>('/patients', { signal })).data });
     const users = useQuery({ queryKey: ['users', session.version], enabled: !!admin, queryFn: async ({ signal }) => (await agent.get<ManagedUser[]>('/user-management', { signal })).data });
     const doctors = useQuery({ queryKey: ['practitioners', session.version], queryFn: async ({ signal }) => (await agent.get<{ id: string; name: string }[]>('/practitioners', { signal })).data });
-    const grants = useQuery({ queryKey: ['patient-access', session.version, selected?.id], enabled: !!selected, queryFn: async ({ signal }) => (await agent.get<{ id: string; name: string }[]>(`/patients/${selected!.id}/access`, { signal })).data });
+    const grants = useQuery({ queryKey: ['patient-access', session.version, selected?.id], enabled: !!selected && staff, queryFn: async ({ signal }) => (await agent.get<{ id: string; name: string }[]>(`/patients/${selected!.id}/access`, { signal })).data });
     const events = useQuery({ queryKey: ['patient-events', session.version, selected?.id], enabled: !!selected, queryFn: async ({ signal }) => (await agent.get<EventItem[]>(`/patients/${selected!.id}/activities`, { signal })).data });
     async function refresh() { await Promise.all(['patients','patient-access','activities','activity-assignment-options','booking'].map(key => cache.invalidateQueries({ queryKey: [key] }))); }
     async function run(action: () => Promise<void>) { setBusy(true); setError(''); try { await action(); await refresh(); } catch (e) { setError(errorText(e)); } finally { setBusy(false); } }
     const field = (key: keyof Patient) => ({ value: form?.[key] ?? '', onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form!, [key]: e.target.value }) });
     return <Box sx={{ display: 'grid', gap: 2 }}>
         <Typography variant="h4">Páciensek kezelése</Typography>{error && <Alert severity="error">{error}</Alert>}
-        <Box sx={{ display: 'flex', gap: 2 }}><TextField id="patient-search" name="patientSearch" label="Keresés név szerint" value={search} onChange={e => setSearch(e.target.value)} /><Button variant="contained" onClick={() => { setError(''); setForm({ ...blank }); }}>Új páciens</Button></Box>
+        <Box sx={{ display: 'flex', gap: 2 }}><TextField id="patient-search" name="patientSearch" label="Keresés név szerint" value={search} onChange={e => setSearch(e.target.value)} />{staff && <Button variant="contained" onClick={() => { setError(''); setForm({ ...blank }); }}>Új páciens</Button>}</Box>
+        {!staff && <Alert severity="info">A hozzád rendelt páciensek adatait láthatod; megjegyzéseiket és dokumentumaikat az adatlapon kezelheted.</Alert>}
         {list.isPending && <Typography>Betöltés…</Typography>}{list.isError && <Alert severity="error">A pácienslista nem tölthető be.</Alert>}
         {list.data?.filter(p => p.name.toLocaleLowerCase('hu').includes(search.toLocaleLowerCase('hu'))).map(p => <Paper key={p.id} sx={{ p: 2 }}>
             <Typography variant="h6">{p.name}</Typography><Typography>TAJ: {p.tajNumber} · Született: {p.birthDate}</Typography>
-            <Button onClick={() => { setSelected(p); setUserId(p.userId ?? ''); }}>Adatlap és események</Button><Button onClick={() => { setError(''); setForm({ ...p }); }}>Szerkesztés</Button><Button color="error" onClick={() => setRemove(p)}>Törlés</Button>
+            <Button onClick={() => { setSelected(p); setUserId(p.userId ?? ''); }}>Adatlap és események</Button>{staff && <><Button onClick={() => { setError(''); setForm({ ...p }); }}>Szerkesztés</Button><Button color="error" onClick={() => setRemove(p)}>Törlés</Button></>}
         </Paper>)}
         {list.data?.length === 0 && <Typography>Nincs páciens.</Typography>}
         <Dialog open={!!form} onClose={() => { if (!busy) setForm(null); }} fullWidth><DialogTitle>{form?.id ? 'Páciens szerkesztése' : 'Új páciens'}</DialogTitle><DialogContent>
@@ -42,10 +44,10 @@ export default function PatientsPage() {
         <Dialog open={!!selected} onClose={() => setSelected(null)} fullWidth maxWidth="md"><DialogTitle>{selected?.name} – adatlap</DialogTitle><DialogContent>
             <Typography>{selected?.email} · {selected?.phone}</Typography><Typography>{selected?.address}</Typography><Typography>{selected?.notes}</Typography>
             {admin && <Box sx={{ display: 'flex', gap: 2, my: 2 }}><TextField fullWidth select label="Páciens felhasználói fiókja" value={userId} onChange={e => setUserId(e.target.value)}><MenuItem value="">Válassz fiókot</MenuItem>{users.data?.filter(u => u.roles.includes('Patient')).map(u => <MenuItem key={u.id} value={u.id}>{u.userName}</MenuItem>)}</TextField><Button disabled={busy || !userId} onClick={() => void run(async () => { await agent.put(`/patients/${selected!.id}/user`, { userId }); setSelected({ ...selected!, userId }); })}>Összekapcsolás</Button></Box>}
-            {error && <Alert severity="error">{error}</Alert>}<Typography variant="h6">Hozzáférő kezelők</Typography>
+            {error && <Alert severity="error">{error}</Alert>}{staff && <><Typography variant="h6">Hozzáférő kezelők</Typography>
             {grants.data?.map(d => <Box key={d.id}>{d.name}<Button disabled={busy} onClick={() => void run(async () => { await agent.delete(`/patients/${selected!.id}/access/${d.id}`); })}>Hozzáférés visszavonása</Button></Box>)}
             <Box sx={{ display: 'flex', gap: 2, my: 2 }}><TextField fullWidth select label="Kezelő hozzáférése" value={doctorId} onChange={e => setDoctorId(e.target.value)}>{doctors.data?.map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}</TextField><Button disabled={busy || !doctorId} onClick={() => void run(async () => { await agent.put(`/patients/${selected!.id}/access/${doctorId}`); setDoctorId(''); })}>Hozzárendelés</Button></Box>
-            <Typography variant="h6">Események</Typography>
+            </>}<Typography variant="h6">Események</Typography>
             {events.isPending && <Typography>Betöltés…</Typography>}{events.isError && <Alert severity="error">Az események nem tölthetők be.</Alert>}
             {events.data?.map(a => <Box key={a.id} sx={{ py: 1 }}><Button component={Link} to={`/activities/${a.id}`}>{a.title}</Button><Typography>{a.date.replace('T', ' ')} · {a.status}</Typography></Box>)}
             {events.data?.length === 0 && <Typography>Nincs kapcsolt esemény.</Typography>}

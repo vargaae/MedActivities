@@ -6,6 +6,7 @@ import agent from '../../lib/api/agent';
 import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
 import ActivityLogin from '../activities/form/ActivityLogin';
 import AppointmentActions from './AppointmentActions';
+import { errorText } from '../management/shared';
 type Person = { id: string; name: string; bookingEnabled?: boolean };
 type Appointment = { id: string; startTime: string; activityId: string; status: number; patientId: string; practitionerId: string };
 export default function MedBookingPage() {
@@ -23,6 +24,7 @@ function BookingEditor({ version }: { version: number }) {
     const [practitionerId, setPractitionerId] = useState('');
     const [date, setDate] = useState('');
     const [message, setMessage] = useState('');
+    const [now] = useState(() => Date.now());
     const canBook = !!session.data && (session.data.canAssign || !session.data.isPractitioner);
     const people = useQuery({ queryKey: ['booking', 'people', version], queryFn: async ({ signal }) => {
         const [patients, doctors] = await Promise.all([agent.get<Person[]>('/patients', { signal }), agent.get<Person[]>('/practitioners', { signal })]);
@@ -39,7 +41,7 @@ function BookingEditor({ version }: { version: number }) {
     const refresh = async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['booking'] }), cache.invalidateQueries({ queryKey: ['activities'] })]); };
     const book = useMutation({ mutationFn: async (hour: number) => {
         await agent.post('/appointments', { patientId: selectedPatient, practitionerId, date, hour, note: null });
-    }, onSuccess: async () => { setMessage('Sikeres foglalás. Az esemény a páciensnél és a kezelőorvosnál is megjelenik.'); await refresh(); }, onError: async () => { setMessage('A foglalás nem sikerült. Ellenőrizd a szabad időpontokat és a napi korlátot.'); await slots.refetch(); }});
+    }, onSuccess: async () => { setMessage('Sikeres foglalás. Az esemény a páciensnél és a kezelőorvosnál is megjelenik.'); await refresh(); }, onError: async (error) => { setMessage(errorText(error)); await slots.refetch(); }});
     const cancel = useMutation({ mutationFn: async (id: string) => { await agent.post(`/appointments/${id}/cancel`); }, onSuccess: refresh });
     const busy = book.isPending || cancel.isPending;
     return <Box sx={{ display: 'grid', gap: 2 }}>
@@ -72,7 +74,7 @@ function BookingEditor({ version }: { version: number }) {
             <Typography>{people.data?.patients.find(p => p.id === a.patientId)?.name} · {people.data?.doctors.find(p => p.id === a.practitionerId)?.name}</Typography>
             <Button component={Link} to={`/activities/${a.activityId}`}>Esemény megnyitása</Button>
             <AppointmentActions appointment={a} canMove={canBook} canManage={!!session.data && (session.data.canAssign || session.data.isPractitioner)} canDelete={!!session.data?.canAssign} refresh={refresh} />
-            {a.status === 0 && new Date(a.startTime).getTime() > Date.now() && <Button color="warning" disabled={busy} onClick={() => cancel.mutate(a.id)}>Foglalás lemondása</Button>}
+            {a.status === 0 && new Date(a.startTime).getTime() > now && <Button color="warning" disabled={busy} onClick={() => cancel.mutate(a.id)}>Foglalás lemondása</Button>}
         </Paper>)}
     </Box>;
 }

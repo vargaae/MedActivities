@@ -4,10 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Persistence;
 using Persistence.Identity;
 
-var builder = WebApplication.CreateBuilder(args);
+var seedDemo = args.Contains("--seed-demo-data");
+var demoStatus = args.Contains("--demo-data-status");
+var demoAdmin = args.Contains("--configure-demo-admin");
+var builder = WebApplication.CreateBuilder(args.Where(a => a is not "--seed-demo-data" and not "--demo-data-status" and not "--configure-demo-admin").ToArray());
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddSignalR(options => options.MaximumReceiveMessageSize = 16 * 1024);
 builder.Services.AddMedActivities();
 var provider = builder.Configuration["Database:Provider"] ?? "SqlServer";
 if (provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
@@ -38,6 +42,28 @@ builder.Services.AddMediatR(x => x.RegisterServicesFromAssemblyContaining<GetAct
 
 var app = builder.Build();
 
+// Explicit CLI workflow: no listening port needed and no implicit production seeding.
+if (seedDemo || demoStatus || demoAdmin)
+{
+    using var demoScope = app.Services.CreateScope();
+    var demoDb = demoScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (demoAdmin) {
+        if (!app.Environment.IsDevelopment()) throw new InvalidOperationException("Demóadmin csak Development környezetben konfigurálható.");
+        await DemoAdminSetup.Configure(demoScope.ServiceProvider, app.Configuration);
+    }
+    if (seedDemo)
+    {
+        if (!app.Environment.IsDevelopment()) throw new InvalidOperationException("Demóadat csak Development környezetben tölthető fel.");
+        if ((await demoDb.Database.GetPendingMigrationsAsync()).Any())
+            throw new InvalidOperationException("Előbb alkalmazd a függő adatbázis-migrációkat.");
+        await DemoDataSeeder.SeedAsync(demoDb,
+            demoScope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<AppUser>>(),
+            demoScope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.RoleManager<Microsoft.AspNetCore.Identity.IdentityRole>>());
+    }
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(await DemoDataSeeder.Report(demoDb)));
+    return;
+}
+
 app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -45,12 +71,21 @@ app.UseStaticFiles();
 app.UseCors("CorsPolicy");
 
 app.UseMedActivitiesGuard();
+// Browser WebSocket/SSE transports pass bearer tokens in the query string.
+// Accept it only on the chat route; ASP.NET request logging is Warning (no token URLs).
+app.Use(async (context, next) => {
+    if (context.Request.Path.StartsWithSegments("/api/chat") && !context.Request.Headers.ContainsKey("Authorization") &&
+        context.Request.Query.TryGetValue("access_token", out var chatToken))
+        context.Request.Headers.Authorization = "Bearer " + chatToken.ToString();
+    await next();
+});
 app.UseAuthentication();
 app.UseMedSessionValidation();
 app.UseDemoSessionBoundary();
 app.UseAuthorization();
 app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
 app.MapControllers();
+app.MapHub<API.SignalR.ChatHub>("/api/chat", options => options.CloseOnAuthenticationExpiration = true);
 app.MapGet("/api/health", async (AppDbContext db) =>
     await db.Database.CanConnectAsync()
         ? Results.Ok(new { status = "ok", database = db.Database.IsSqlServer() ? "SqlServer" : "Sqlite" })

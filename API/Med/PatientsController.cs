@@ -17,6 +17,7 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
     [HttpPost, Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> Create(PatientInput input) {
         if (input.BirthDate > DateOnly.FromDateTime(DateTime.Today) || input.BirthDate == default) return BadRequest("Hibás születési dátum.");
+        if (await db.Patients.AnyAsync(p => p.TajNumber == input.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már szerepel a páciensek között." });
         var p = new Patient { Name=input.Name.Trim(), TajNumber=input.TajNumber };
         Apply(p,input); db.Patients.Add(p); await db.SaveChangesAsync();
         return CreatedAtAction(nameof(Details),new {id=p.Id},new {p.Id});
@@ -25,6 +26,7 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
     public async Task<IActionResult> Edit(string id, PatientInput input) {
         if (input.BirthDate > DateOnly.FromDateTime(DateTime.Today) || input.BirthDate == default) return BadRequest("Hibás születési dátum.");
         var p=await db.Patients.FindAsync(id); if(p is null) return NotFound();
+        if (await db.Patients.AnyAsync(p => p.Id != id && p.TajNumber == input.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már másik pácienshez tartozik." });
         Apply(p,input); await db.SaveChangesAsync(); return NoContent();
     }
     [HttpDelete("{id}"), Authorize(Roles="Admin,AdmissionsOffice")]
@@ -40,6 +42,7 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
         var p=await db.Patients.FindAsync(id); var u=await users.FindByIdAsync(input.UserId);
         if(p is null || u is null) return NotFound();
         if(!await users.IsInRoleAsync(u,"Patient")) return BadRequest("Először rendelj Patient role-t a felhasználóhoz.");
+        if (await db.Patients.AnyAsync(p => p.Id != id && p.UserId == u.Id)) return Conflict(new { message = "Ehhez a fiókhoz már másik páciensprofil tartozik." });
         p.UserId=u.Id; await db.SaveChangesAsync(); return NoContent();
     }
     [HttpGet("{id}/access"),Authorize(Roles="Admin,AdmissionsOffice")]

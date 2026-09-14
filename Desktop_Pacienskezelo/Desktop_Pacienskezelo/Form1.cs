@@ -7,11 +7,25 @@ public partial class Form1 : Form
     private List<Patient> patients = [];
     private string? loadedPatientId;
     public Form1() { InitializeComponent(); }
-    private void Form1_Shown(object? sender, EventArgs e)
+    private async void Form1_Shown(object? sender, EventArgs e)
     {
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
         var configured = Environment.GetEnvironmentVariable("MEDACTIVITIES_API_URL");
         if (!string.IsNullOrWhiteSpace(configured)) urlBox.Text = configured;
+        userBox.Text = "admin@example.undefined";
+        loginButton.Enabled = false;
+        statusLabel.Text = "SQL Server-kapcsolat ellenőrzése az API-n keresztül…";
+        try
+        {
+            using var probe = new ApiClient();
+            await probe.CheckHealth(urlBox.Text);
+            statusLabel.Text = "SQL Server elérhető. Jelentkezz be a demóadmin-fiókkal vagy saját dolgozói fiókoddal.";
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            statusLabel.Text = "Nincs SQL Server-kapcsolat. Indítsd el az API-t (scripts/Start-Api.ps1), majd jelentkezz be.";
+        }
+        finally { if (!IsDisposed) loginButton.Enabled = true; }
     }
     protected override void OnFormClosed(FormClosedEventArgs e) { api?.Dispose(); base.OnFormClosed(e); }
     private async Task Run(Func<Task> action)
@@ -20,14 +34,16 @@ public partial class Form1 : Form
         try { await action(); }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
         { MessageBox.Show(this, ex.Message, "MedActivities", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
-        finally {
+        finally
+        {
             var loggedIn = api?.Session is not null;
             contentPanel.Enabled = loggedIn; loginButton.Enabled = !loggedIn; logoutButton.Enabled = loggedIn;
             urlBox.Enabled = userBox.Enabled = passwordBox.Enabled = !loggedIn; UseWaitCursor = false;
             if (!loggedIn) ClearData();
         }
     }
-    private async void LoginButton_Click(object? sender, EventArgs e) => await Run(async () => {
+    private async void LoginButton_Click(object? sender, EventArgs e) => await Run(async () =>
+    {
         api?.Dispose(); api = new ApiClient();
         try { await api.Login(urlBox.Text, userBox.Text, passwordBox.Text); } finally { passwordBox.Clear(); }
         statusLabel.Text = $"{api.Session!.UserName} · {string.Join(", ", api.Session.Roles)} · közös SQL Server API";
@@ -36,8 +52,9 @@ public partial class Form1 : Form
         deleteActivityButton.Enabled = api.Staff;
         await RefreshData();
     });
-    private void LogoutButton_Click(object? sender, EventArgs e)
+    private async void LogoutButton_Click(object? sender, EventArgs e)
     {
+        await Run(async () => { if (api is not null) await api.LogoutAsync(); });
         api?.Dispose(); api = null; ClearData(); contentPanel.Enabled = false;
         loginButton.Enabled = true; logoutButton.Enabled = false; urlBox.Enabled = userBox.Enabled = passwordBox.Enabled = true;
     }
@@ -87,28 +104,33 @@ public partial class Form1 : Form
     }
     private async void PatientGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e) { if (e.RowIndex >= 0) await Run(LoadPatientData); }
     private async void ShowPatientButton_Click(object? sender, EventArgs e) => await Run(LoadPatientData);
-    private async void AddPatientButton_Click(object? sender, EventArgs e) {
+    private async void AddPatientButton_Click(object? sender, EventArgs e)
+    {
         using var form = new PatientEditForm(); form.LoadPatient(null);
         if (form.ShowDialog(this) == DialogResult.OK) await Run(async () => { await api!.Post("patients", form.Input); await RefreshData(); });
     }
-    private async void EditPatientButton_Click(object? sender, EventArgs e) {
+    private async void EditPatientButton_Click(object? sender, EventArgs e)
+    {
         var patient = SelectedPatient(); if (patient is null) return;
         using var form = new PatientEditForm(); form.LoadPatient(patient);
         if (form.ShowDialog(this) == DialogResult.OK) await Run(async () => { await api!.Put("patients/" + patient.Id, form.Input); await RefreshData(); });
     }
-    private async void DeletePatientButton_Click(object? sender, EventArgs e) {
+    private async void DeletePatientButton_Click(object? sender, EventArgs e)
+    {
         var patient = SelectedPatient(); if (patient is null || !Confirm("páciens", patient.Name)) return;
         await Run(async () => { await api!.Delete("patients/" + patient.Id); await RefreshData(); });
     }
     private bool Confirm(string kind, string name) => MessageBox.Show(this, $"Megerősíted: {kind} – {name}?", "Megerősítés", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
-    private void RecordsButton_Click(object? sender, EventArgs e) {
+    private void RecordsButton_Click(object? sender, EventArgs e)
+    {
         var patient = SelectedPatient(); if (patient is null) return;
         using var form = new RecordsForm(); form.Configure(api!, patient); form.ShowDialog(this);
         if (api!.Session is null) LogoutButton_Click(sender, e);
     }
     private async void AddActivityButton_Click(object? sender, EventArgs e) => await EditActivity(false);
     private async void EditActivityButton_Click(object? sender, EventArgs e) => await EditActivity(true);
-    private async Task EditActivity(bool edit) => await Run(async () => {
+    private async Task EditActivity(bool edit) => await Run(async () =>
+    {
         var patient = SelectedPatient(); if (patient is null) return;
         var id = activityGrid.CurrentRow?.Cells["Azonosító"].Value?.ToString();
         if (edit && id is null) return;
@@ -121,13 +143,15 @@ public partial class Form1 : Form
         if (edit) await api.Put("activities", form.Input); else await api.Post("activities", form.Input);
         await LoadPatientData();
     });
-    private async void DeleteActivityButton_Click(object? sender, EventArgs e) {
+    private async void DeleteActivityButton_Click(object? sender, EventArgs e)
+    {
         var row = activityGrid.CurrentRow; if (row is null || !Confirm("esemény és esetleges foglalása végleges törlése", row.Cells["Cím"].Value.ToString()!)) return;
         await Run(async () => { await api!.Delete("activities/" + row.Cells["Azonosító"].Value); await LoadPatientData(); });
     }
     private async void AddBookingButton_Click(object? sender, EventArgs e) => await EditBooking(false);
     private async void MoveBookingButton_Click(object? sender, EventArgs e) => await EditBooking(true);
-    private async Task EditBooking(bool edit) => await Run(async () => {
+    private async Task EditBooking(bool edit) => await Run(async () =>
+    {
         var patient = SelectedPatient(); if (patient is null) return;
         var id = bookingGrid.CurrentRow?.Cells["Azonosító"].Value?.ToString(); if (edit && id is null) return;
         var item = edit ? await api!.Get<AppointmentItem>("appointments/" + id) : null;
@@ -138,10 +162,12 @@ public partial class Form1 : Form
     private async void CancelBookingButton_Click(object? sender, EventArgs e) => await ChangeBooking("cancel");
     private async void StatusBookingButton_Click(object? sender, EventArgs e) => await ChangeBooking("status");
     private async void DeleteBookingButton_Click(object? sender, EventArgs e) => await ChangeBooking("delete");
-    private async Task ChangeBooking(string action) {
+    private async Task ChangeBooking(string action)
+    {
         var row = bookingGrid.CurrentRow; if (row is null) return;
         if (!Confirm(action == "delete" ? "foglalás végleges törlése" : action == "cancel" ? "foglalás lemondása" : "státusz módosítása", row.Cells["Kezdés"].Value.ToString()!)) return;
-        await Run(async () => {
+        await Run(async () =>
+        {
             var path = "appointments/" + row.Cells["Azonosító"].Value;
             if (action == "delete") await api!.Delete(path);
             else if (action == "cancel") await api!.Post(path + "/cancel", new { });
@@ -153,5 +179,10 @@ public partial class Form1 : Form
     {
         if (api?.BaseAddress is not null)
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(new Uri(api.BaseAddress, "../").ToString()) { UseShellExecute = true });
+    }
+
+    private void searchLabel_Click(object sender, EventArgs e)
+    {
+
     }
 }

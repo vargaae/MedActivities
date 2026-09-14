@@ -28,11 +28,22 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
         if(user is null)return Unauthorized(new{message="Hibás felhasználónév vagy jelszó."});
         var result=await signIn.CheckPasswordSignInAsync(user,input.Password,true);
         if(!result.Succeeded)return Unauthorized(new{message="Hibás belépési adatok vagy zárolt fiók."});
+        if (user.Id.StartsWith(DemoSessionSetup.Prefix) && !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()) return Unauthorized();
         return SignIn(await signIn.CreateUserPrincipalAsync(user),IdentityConstants.BearerScheme);
+    }
+    [HttpPost("logout"), Authorize]
+    public async Task<IActionResult> Logout() {
+        var user = await users.GetUserAsync(User);
+        if (user is not null) MedSetup.Check(await users.UpdateSecurityStampAsync(user));
+        await signIn.SignOutAsync();
+        return NoContent();
     }
     [HttpPost("register"),AllowAnonymous]
     public async Task<IActionResult> Register(SessionRegisterInput input) {
         if(input.Role=="Patient" && (input.BirthDate==default || input.BirthDate>DateOnly.FromDateTime(DateTime.Today)))return BadRequest(new{message="Érvényes születési dátum szükséges."});
+        if ((input.Role == "Patient" && await db.Patients.AnyAsync(p => p.TajNumber == input.TajNumber)) ||
+            (input.Role == "Practitioner" && await db.Practitioners.AnyAsync(p => p.TajNumber == input.TajNumber)))
+            return Conflict(new { message = "Ezzel a TAJ-számmal már létezik profil. Kérj fiók-összekapcsolást az admintól." });
         await using var tx=await db.Database.BeginTransactionAsync();
         var user=new AppUser{UserName=input.UserName.Trim(),Email=input.Email.Trim()};
         var result=await users.CreateAsync(user,input.Password);
@@ -51,6 +62,7 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
 public static class SessionValidation {
     public static IApplicationBuilder UseMedSessionValidation(this IApplicationBuilder app)=>app.Use(async(context,next)=>{
         if(context.User.Identity?.IsAuthenticated==true) {
+            context.RequestServices.GetRequiredService<AppDbContext>().AuditUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
             var users=context.RequestServices.GetRequiredService<UserManager<AppUser>>();
             var user=await users.GetUserAsync(context.User);
             var claim=users.Options.ClaimsIdentity.SecurityStampClaimType;

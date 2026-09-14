@@ -28,6 +28,12 @@ dotnet tool restore
 dotnet ef database update --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
 ~~~
 
+Az EF parancs implicit buildet is futtat. Mielőtt kiadod, állítsd le a futó API-példányt (`Ctrl+C` vagy Visual Studio **Stop Debugging**), mert a futó folyamat Windows alatt zárolhatja a projekt DLL-jeit és `MSB3021/MSB3027` hibát okozhat. Már sikeresen lefordított forrásnál a build kihagyható:
+
+~~~powershell
+dotnet ef database update --no-build --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
+~~~
+
 A célzott SQL Server migrationök itt vannak:
 
 - Persistence/Migrations/SqlServer/20260913164236_SqlServerInitial.cs

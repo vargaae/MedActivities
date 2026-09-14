@@ -41,6 +41,8 @@ function ActivityEditor() {
     useEffect(() => {
         if (activity) {
             reset({ ...activity, location: { city: activity.city, venue: activity.venue, latitude: activity.latitude, longitude: activity.longitude } });
+            // Hydrate the local draft controls when the asynchronous activity arrives.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setPatient(activity.patients.length === 1 ? activity.patients[0] : null);
             setDoctors(activity.practitioners); setStatus(activity.status);
         }

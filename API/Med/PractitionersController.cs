@@ -18,6 +18,8 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     [HttpPost,Authorize(Roles="Admin")]
     public async Task<IActionResult> Create(PractitionerInput i) {
         var u=await users.FindByIdAsync(i.UserId); if(u is null || !await users.IsInRoleAsync(u,"Practitioner")) return BadRequest("Practitioner role-lal rendelkező felhasználó szükséges.");
+        if (await db.Practitioners.AnyAsync(p => p.UserId == i.UserId)) return Conflict(new { message = "Ehhez a fiókhoz már tartozik kezelőprofil. A meglévő kezelőt szerkeszd, vagy válassz szabad Practitioner-fiókot." });
+        if (await db.Practitioners.AnyAsync(p => p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már szerepel a kezelők között." });
         var p=new PractitionerProfile{Name=i.Name.Trim(),TajNumber=i.TajNumber,UserId=i.UserId,Specialty=i.Specialty,City=i.City,Venue=i.Venue};
         p.BookingSettings=new(){PractitionerId=p.Id}; db.Practitioners.Add(p); await db.SaveChangesAsync();
         return CreatedAtAction(nameof(Details),new{id=p.Id},new{p.Id});
@@ -26,6 +28,7 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     public async Task<IActionResult> Edit(string id,PractitionerInput i) {
         var p=await db.Practitioners.FindAsync(id); if(p is null) return NotFound();
         if(i.UserId!=p.UserId) return BadRequest("A kezelő felhasználói kapcsolata nem módosítható.");
+        if (await db.Practitioners.AnyAsync(p => p.Id != id && p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már másik kezelőhöz tartozik." });
         p.Name=i.Name.Trim();p.TajNumber=i.TajNumber;p.Specialty=i.Specialty;p.City=i.City;p.Venue=i.Venue;
         await db.SaveChangesAsync();return NoContent();
     }
@@ -34,6 +37,13 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
         var p=await db.Practitioners.FindAsync(id);if(p is null)return NotFound();
         if(await db.Appointments.AnyAsync(a=>a.PractitionerId==id)||await db.ActivityPractitioners.AnyAsync(a=>a.PractitionerId==id))return Conflict("Kapcsolt kezelő nem törölhető.");
         db.Remove(p);await db.SaveChangesAsync();return NoContent();
+    }
+    [HttpGet("available-accounts"), Authorize(Roles="Admin")]
+    public async Task<IActionResult> AvailableAccounts() {
+        var assigned = await db.Practitioners.Select(p => p.UserId).ToListAsync();
+        return Ok((await users.GetUsersInRoleAsync("Practitioner"))
+            .Where(u => !assigned.Contains(u.Id) && (!u.LockoutEnd.HasValue || u.LockoutEnd <= DateTimeOffset.UtcNow))
+            .Select(u => new { u.Id, u.UserName }));
     }
     [HttpPut("{id}/booking-enabled"),Authorize(Roles="Admin")]
     public async Task<IActionResult> Enable(string id,EnabledInput i) {
@@ -45,7 +55,7 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     public async Task<IActionResult> Hours(string id)=>Ok(await db.PractitionerWorkingHours.Where(w=>w.PractitionerId==id).Select(w=>new{w.DayOfWeek,w.IsWorkingDay,w.StartTime,w.EndTime}).ToListAsync());
     [HttpPut("{id}/working-hours")]
     public async Task<IActionResult> Hours(string id,WorkingHoursInput i) {
-        if(!access.Staff && !await access.OwnPractitioner(id))return Forbid();
+        if(!access.Admin)return Forbid();
         if(!await db.Practitioners.AnyAsync(p=>p.Id==id))return NotFound();
         if(!Enum.IsDefined(i.DayOfWeek) || i.StartTime.Minute!=0 || i.EndTime.Minute!=0 || i.StartTime.Ticks%TimeSpan.TicksPerHour!=0 || i.EndTime.Ticks%TimeSpan.TicksPerHour!=0 || i.StartTime<new TimeOnly(8,0)||i.EndTime>new TimeOnly(20,0)||i.StartTime>=i.EndTime)return BadRequest("Egész órás munkaidő kell 08–20 között.");
         var now=BookingService.LocalNow();

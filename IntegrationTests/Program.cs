@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json.Nodes;
 using Desktop_Pacienskezelo;
@@ -86,8 +87,17 @@ internal static class Program
             await Expect(anonymous, "POST", "session/register", new { userName = "patient", email = "patient@test.invalid", password = secret, name = "Saját Páciens", role = "Patient", tajNumber = "800000001", birthDate = "1990-01-01" }, 201);
             using var doctor = await Login(anonymous.BaseAddress, "doctor", secret);
             using var patient = await Login(anonymous.BaseAddress, "patient", secret);
+            await Expect(admin, "POST", "user-management", new { userName = "office", email = "office@test.invalid", password = secret, name = "Felvételi teszt", role = "AdmissionsOffice" }, 201);
+            using var office = await Login(anonymous.BaseAddress, "office", secret);
             var doctors = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray();
             var doctorId = doctors[0]!["id"]!.GetValue<string>();
+            var doctorUserId = (await Expect(doctor, "GET", "session/me", null, 200))!["id"]!.GetValue<string>();
+            await Expect(admin, "POST", "practitioners", new { name = "Dupla profil", tajNumber = "900000002", userId = doctorUserId, specialty = "Orvos", city = "Budapest", venue = "Rendelő" }, 409);
+            Check((await Expect(admin, "GET", "practitioners/available-accounts", null, 200))!.AsArray().Count == 0, "Linked practitioner account is not offered again");
+            await Expect(doctor, "DELETE", "practitioners/" + doctorId, null, 403);
+            await Expect(office, "DELETE", "practitioners/" + doctorId, null, 403);
+            await Expect(patient, "DELETE", "practitioners/" + doctorId, null, 403);
+            await Expect(doctor, "PUT", $"practitioners/{doctorId}/working-hours", new { dayOfWeek = 1, isWorkingDay = true, startTime = "08:00:00", endTime = "16:00:00" }, 403);
             await Expect(doctor, "GET", "patients/" + p1, null, 404);
             await Expect(patient, "GET", "patients/" + p1, null, 404);
             await Expect(patient, "POST", "patients", PatientInput("Tiltott", "123123123"), 403);
@@ -100,6 +110,9 @@ internal static class Program
             object ActivityInput(string? id, string title) => new { id, title, date = day.ToDateTime(new TimeOnly(10,0)), description = "Leírás", category = "Vizsgálat", city = "Budapest", venue = "Rendelő", patientId = p1, practitionerIds = new[] { doctorId }, status = "Scheduled" };
             var activityId = (await Expect(admin, "POST", "activities", ActivityInput(null, "Esemény"), 201))!.GetValue<string>();
             await Expect(doctor, "GET", "activities/" + activityId, null, 200);
+            Check((await Expect(admin, "GET", $"activities?patientId={p1}&practitionerId={doctorId}", null, 200))!.AsArray().Count == 1, "MediatR patient and practitioner filters combine");
+            Check((await Expect(doctor, "GET", $"activities?patientId={p2}", null, 200))!.AsArray().Count == 0, "Filter cannot broaden practitioner access");
+            await VerifyChat(anonymous, admin, doctor, patient, activityId);
             await Expect(admin, "PUT", "activities", ActivityInput(activityId, "Módosított esemény"), 204);
             await Expect(admin, "DELETE", "patients/" + p1, null, 409);
             await Expect(admin, "DELETE", "activities/" + activityId, null, 204);
@@ -148,6 +161,18 @@ internal static class Program
             await using var db = new SqlServerDbContext(options);
             await db.Database.MigrateAsync();
             Check(!(await db.Database.GetPendingMigrationsAsync()).Any(), "SQL migrations are repeatable, no pending changes");
+            var archivedTables = await db.DeletedRecords.Select(r => r.TableName).Distinct().ToListAsync();
+            Check(new[] { "Patients", "Practitioners", "Activities", "Appointments", "PatientNotes", "PatientDocuments", "PatientActivities", "ActivityPractitioners", "ActivityComments", "PractitionerWorkingHours", "PractitionerBookingSettings" }.All(archivedTables.Contains), "SQL triggers archive main records and cascaded children");
+            var archivedDocument = await db.DeletedRecords.SingleAsync(r => r.TableName == "PatientDocuments");
+            Check(Convert.FromBase64String(JsonNode.Parse(archivedDocument.SnapshotJson)!["Content"]!.GetValue<string>()).SequenceEqual(bytes), "Deleted document archive contains the full binary content");
+            Check(await db.DeletedRecords.Where(r => r.TableName == "Patients").AllAsync(r => r.DeletedBy != null && r.DeletedAtUtc != default), "Deletion archive records actor and UTC time");
+            try { await db.Database.ExecuteSqlRawAsync("DELETE FROM [DeletedRecords]"); throw new InvalidOperationException("Archive deletion was permitted."); }
+            catch (SqlException ex) when (ex.Number == 51001) { Check(true, "Deletion archive is protected from DELETE"); }
+            await Expect(patient, "POST", "session/logout", new { }, 204);
+            await Expect(patient, "GET", "session/me", null, 401);
+            using var reloggedPatient = await Login(anonymous.BaseAddress, "patient", secret);
+            await Expect(reloggedPatient, "GET", "session/me", null, 200);
+            await VerifyDemo(process, anonymous, db);
         }
         finally {
             if (process.Id != 0 && !process.HasExited) { process.Kill(true); await process.WaitForExitAsync(); }
@@ -157,6 +182,127 @@ internal static class Program
             await using var cleanup = new SqlServerDbContext(options);
             await cleanup.Database.EnsureDeletedAsync();
         }
+    }
+
+    private static async Task VerifyChat(HttpClient anonymous, HttpClient admin, HttpClient doctor, HttpClient patient, string activityId)
+    {
+        await Expect(anonymous, "POST", "chat/negotiate?negotiateVersion=1", null, 401);
+        async Task<ClientWebSocket> Connect(HttpClient user) {
+            var socket = new ClientWebSocket();
+            socket.Options.SetRequestHeader("Authorization", user.DefaultRequestHeaders.Authorization!.ToString());
+            var uri = new UriBuilder(new Uri(user.BaseAddress!, "chat")) { Scheme = "ws", Query = "activityId=" + activityId };
+            await socket.ConnectAsync(uri.Uri, CancellationToken.None);
+            await Send(socket, "{\"protocol\":\"json\",\"version\":1}");
+            await Receive(socket);
+            return socket;
+        }
+        async Task Send(ClientWebSocket socket, string message) => await socket.SendAsync(Encoding.UTF8.GetBytes(message + "\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+        async Task<string> Receive(ClientWebSocket socket) {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var buffer = new byte[65536]; var message = new StringBuilder();
+            WebSocketReceiveResult result;
+            do { result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), timeout.Token); message.Append(Encoding.UTF8.GetString(buffer, 0, result.Count)); } while (!result.EndOfMessage);
+            return message.ToString();
+        }
+        async Task<JsonNode> Invoke(ClientWebSocket socket, string id, string target, params object[] arguments) {
+            await Send(socket, System.Text.Json.JsonSerializer.Serialize(new { type = 1, invocationId = id, target, arguments }));
+            for (var i = 0; i < 10; i++) foreach (var message in (await Receive(socket)).Split('\u001e', StringSplitOptions.RemoveEmptyEntries)) {
+                var json = JsonNode.Parse(message)!;
+                if (json["invocationId"]?.GetValue<string>() == id) return json;
+                if (json["type"]?.GetValue<int>() == 7) throw new InvalidOperationException("Chat connection closed.");
+            }
+            throw new InvalidOperationException("Chat response missing.");
+        }
+        using var sender = await Connect(admin);
+        using var receiver = await Connect(doctor);
+        var blank = await Invoke(sender, "blank", "SendComment", "   ");
+        Check(blank["error"] is not null, "Chat rejects empty messages");
+        var sent = await Invoke(sender, "send", "SendComment", "SQL Server chat teszt <script>nem HTML</script>");
+        Check(sent["result"]?["body"]?.GetValue<string>().StartsWith("SQL Server chat teszt") == true, "SignalR message saved through MediatR");
+        var history = await Invoke(receiver, "history", "LoadComments");
+        Check(history["result"]!.AsArray().Count == 1, "Second authorized connection reads persisted chat");
+        // A patient without a link to this activity cannot join/read the group.
+        using var denied = await Connect(patient);
+        var deniedResult = false;
+        try { var response = await Invoke(denied, "denied", "LoadComments"); deniedResult = response["error"] is not null; }
+        catch (Exception ex) when (ex is WebSocketException or InvalidOperationException) { deniedResult = true; }
+        Check(deniedResult, "Unrelated patient cannot read event chat");
+        await sender.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        await receiver.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
+
+    private static async Task VerifyDemo(Process server, HttpClient anonymous, SqlServerDbContext db)
+    {
+        const string prefix = "egeszsegut-demo-v1-";
+        await Expect(anonymous, "POST", "dev-session/Admin", new { }, 404);
+        async Task Restart(string environment) {
+            if (!server.HasExited) { server.Kill(true); await server.WaitForExitAsync(); }
+            server.CancelOutputRead(); server.CancelErrorRead();
+            server.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
+            server.Start(); server.BeginOutputReadLine(); server.BeginErrorReadLine();
+            for (var i = 0; i < 100 && !server.HasExited; i++) {
+                try { using var response = await anonymous.GetAsync("health"); if (response.IsSuccessStatusCode) return; }
+                catch (HttpRequestException) { }
+                await Task.Delay(200);
+            }
+            throw new InvalidOperationException("Demo verification API did not restart.");
+        }
+        async Task Seed(string environment, bool expectedSuccess) {
+            using var child = new Process { StartInfo = new ProcessStartInfo("dotnet") {
+                WorkingDirectory = server.StartInfo.WorkingDirectory,
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true
+            } };
+            child.StartInfo.ArgumentList.Add(server.StartInfo.ArgumentList[0]);
+            child.StartInfo.ArgumentList.Add("--seed-demo-data");
+            foreach (var pair in server.StartInfo.Environment) child.StartInfo.Environment[pair.Key] = pair.Value;
+            child.StartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
+            child.StartInfo.Environment["Logging__LogLevel__Default"] = "Warning";
+            child.Start();
+            var output = child.StandardOutput.ReadToEndAsync();
+            var error = child.StandardError.ReadToEndAsync();
+            await child.WaitForExitAsync();
+            var text = await output + await error;
+            if ((child.ExitCode == 0) != expectedSuccess) throw new InvalidOperationException("Demo seed CLI: " + text);
+            Check(true, expectedSuccess ? "Demo seed CLI completes" : "Production demo seeding is rejected");
+        }
+        await Restart("Development");
+        // Reproduces the original failure: Identity requires a unique email, including demo accounts.
+        var firstToken = (await Expect(anonymous, "POST", "dev-session/Admin", new { }, 200))!["accessToken"]!.GetValue<string>();
+        Check(await db.Users.Where(u => u.Id.StartsWith(prefix)).AllAsync(u => u.Email != null && u.Email.EndsWith("@demo.example.invalid")),
+            "All demo login identities have valid unique emails");
+        var originalPatientId = await db.Patients.Where(p => !p.Id.StartsWith(prefix)).Select(p => p.Id).FirstAsync();
+        await Seed("Development", true);
+        var firstCreatedAt = await db.Activities.Where(a => a.Id == prefix + "activity-0100").Select(a => a.CreatedAt).SingleAsync();
+        await Seed("Development", true);
+        Check(await db.Patients.CountAsync() == 100 && await db.Practitioners.CountAsync() == 50 && await db.Activities.CountAsync() == 1000,
+            "Exact 100/50/1000 totals after repeated seeding");
+        Check(await db.Patients.AnyAsync(p => p.Id == originalPatientId), "Existing patient preserved");
+        Check(await db.Activities.Where(a => a.Id == prefix + "activity-0100").Select(a => a.CreatedAt).SingleAsync() == firstCreatedAt,
+            "Repeat seed preserves existing demo records");
+        Check(!await db.Activities.AnyAsync(a => a.PatientActivities.Count != 1 || a.ActivityPractitioners.Count != 1),
+            "Every generated activity has patient and practitioner links");
+        Check(await db.PractitionerWorkingHours.CountAsync() == 350 && await db.PractitionerBookingSettings.CountAsync() == 50,
+            "50 booking settings and 350 working-day rows");
+        foreach (var role in new[] { "Admin", "AdmissionsOffice", "Practitioner", "Patient" }) {
+            var token = (await Expect(anonymous, "POST", "dev-session/" + role, new { }, 200))!["accessToken"]!.GetValue<string>();
+            using var http = new HttpClient { BaseAddress = anonymous.BaseAddress };
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var me = await Expect(http, "GET", "session/me", null, 200);
+            Check(me!["roles"]!.AsArray().Any(r => r!.GetValue<string>() == role), "Demo principal role: " + role);
+            var visible = (await Expect(http, "GET", "activities", null, 200))!.AsArray();
+            Check(role is "Admin" or "AdmissionsOffice" ? visible.Count == 1000 : visible.Count > 0 && visible.Count < 1000,
+                "Demo role has scoped events: " + role);
+            if (role == "Patient") {
+                Check((await Expect(http, "GET", "patients", null, 200))!.AsArray().Count == 1, "Demo patient only sees own profile");
+                await Expect(http, "GET", "patients/" + originalPatientId, null, 404);
+            }
+        }
+        await Seed("Production", false);
+        await Restart("Production");
+        using var oldDemo = new HttpClient { BaseAddress = anonymous.BaseAddress };
+        oldDemo.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firstToken);
+        await Expect(oldDemo, "GET", "session/me", null, 401);
+        await Expect(anonymous, "POST", "dev-session/Admin", new { }, 404);
     }
     private static async Task<HttpClient> Login(Uri address, string userName, string password)
     {

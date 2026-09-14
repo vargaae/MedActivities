@@ -12,12 +12,29 @@ Az első véglegesítési csomag elkészült:
 - Páciens teljes CRUD, egyedi 9 számjegyű TAJ-kezelés, kezdő nullák megőrzésével.
 - Kezelő, hozzárendelés, esemény és időpont CRUD, ütközés- és munkaidő-ellenőrzéssel.
 - Páciensenkénti megjegyzés- és dokumentum-CRUD. A támogatott fájlok PDF, PNG, JPEG és UTF-8 TXT, legfeljebb 5 MB; a tartalom SQL Serveren `varbinary(max)` mezőben tárolódik.
+- Eseményhez kötött SignalR chat, MediatR-alapú üzenetkezeléssel és az esemény jogosultságán alapuló olvasással.
+- SQL Server törlési archívum: a domainrekordok és kaszkádolt kapcsolataik törlés előtti állapota ugyanabban a tranzakcióban a `DeletedRecords` táblába kerül; az archívum alkalmazásból nem törölhető.
+- Egy böngészőeredeten belül egyszerre egy aktív felhasználói munkamenet marad; a lapfrissítés a sessionStorage miatt nem léptet ki, a demóváltás pedig előbb lezárja az előző munkamenetet
+- Admin/felvételi iroda/kezelő számára páciens- és kezelőorvos szerinti eseményszűrés, szerepkörnek megfelelő kezelő- és páciensfelületek.
 - React felületek a páciens-adatlaphoz, megjegyzésekhez, dokumentumokhoz és időpontok átfoglalásához.
 - Új Windows Forms kliens a `Desktop_Pacienskezelo` mappában. Az űrlapokhoz külön `.Designer.cs` és `.resx` tartozik, ezért Visual Studio 2026-ban a Designer megnyitható és szerkeszthető.
 - A WinForms kliens API-bejelentkezést használ, nem tárol SQL-jelszót, és ugyanazokat az SQL Server-adatokat látja, mint a web.
-- 64 lépéses, izolált SQL Server–API–WinForms integrációs ellenőrzés; a régi SQLite klienshez külön regressziós teszt maradt.
+- 100 lépéses, izolált SQL Server–API–WinForms integrációs ellenőrzés, demóbelépési és adatfeltöltési tesztekkel; a régi SQLite klienshez külön regressziós teszt maradt.
 
 A projektben nincs becsomagolt üzemi jelszó vagy felhasználói adatbázis.
+
+## Demóadatok és gyors belépés
+
+A fejlesztői SQL Server adatbázis 100 páciensre, 50 kezelőre és 1000 eseményre
+tölthető fel a meglévő adatok megőrzésével. A feltöltés ismételhető:
+
+```text
+dotnet run --project API/API.csproj --launch-profile https -- --seed-demo-data
+```
+
+A webes kezdőlap négy DEMÓ gombja valódi, egyedi e-mail-címes Identity-fiókkal működik.
+Részletek és ellenőrzőparancs: [Demóadatok](docs/DEMO-DATA.md).
+A kibővített SQL Server-integrációs teszt 127 ellenőrzése sikeres.
 
 ## Architektúra
 
@@ -77,6 +94,14 @@ $env:Database__Provider = "SqlServer"
 $env:ConnectionStrings__SqlServerConnection = "Server=(localdb)\MSSQLLocalDB;Database=MedActivities;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
 dotnet ef database update --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
 ```
+
+Fontos: a migráció előtt állítsd le az API-t a terminálban `Ctrl+C`-vel vagy Visual Studio-ban a **Stop Debugging** paranccsal. A `dotnet ef` alapértelmezetten buildel; Windows alatt a futó API zárolja a projekt DLL-jeit, ezért az EF buildje ilyenkor `MSB3021/MSB3027` hibával leáll. Ha a forrás már le van fordítva és csak a migrációt futtatod, használható a `--no-build` kapcsoló:
+
+```powershell
+dotnet ef database update --no-build --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
+```
+
+Az `--no-build` csak akkor biztonságos, ha a legutóbbi forrásmódosítások már sikeresen lefordultak. A migráció után indítsd újra az API-t a `scripts/Start-Api.ps1` segédszkripttel.
 
 Ugyanez a repository gyökeréből futtatható a `scripts/Initialize-SqlServer.ps1` segédszkripttel is; a script a connection stringet csak a futó folyamat környezetében használja, és befejezéskor visszaállítja a korábbi környezeti változókat.
 
@@ -143,6 +168,15 @@ Az API-cím alapértéke `https://localhost:5001/api`, illetve a `MEDACTIVITIES_
 
 A `Form1.cs`, `PatientEditForm.cs`, `ActivityEditForm.cs`, `AppointmentForm.cs` és `RecordsForm.cs` mellett az azonos nevű Designer fájlok statikus vezérlődefiníciókat tartalmaznak. A konstruktorok nem kapcsolódnak adatbázishoz, ezért a Designerben biztonságosan megnyithatók.
 
+Az automatikus SQL Server-kapcsolat és a helyi demóadmin beállításához:
+
+```powershell
+pwsh -File scripts/Start-Api.ps1
+pwsh -File scripts/Configure-DemoAdmin.ps1
+```
+
+Az utóbbi a jelszót csak interaktívan kéri be, fájlba és forráskódba nem menti. A helyi WinForms kliens alapértelmezetten `admin@example.undefined` felhasználónevet tölt be; a jelszót a futtatáskor add meg.
+
 ## Tesztelés
 
 A teljes SQL Server ellenőrzéshez LocalDB szükséges:
@@ -160,7 +194,7 @@ SQLite regresszió:
 dotnet run --project Desktop.IntegrationTests/Desktop.IntegrationTests.csproj
 ```
 
-A jelenlegi környezetben az SQL Server integrációs futás 64 ellenőrzése sikeres volt. A frontend Vite kiadási buildje elkészült; a bundle mérete miatt Vite csak optimalizálási figyelmeztetést ad.
+A jelenlegi környezetben az SQL Server integrációs futás 127 ellenőrzése sikeres volt. A frontend lint- és TypeScript-ellenőrzése, valamint a Vite kiadási build is sikeres; a bundle mérete miatt Vite csak optimalizálási figyelmeztetést ad.
 
 ## Ismert korlátozások
 

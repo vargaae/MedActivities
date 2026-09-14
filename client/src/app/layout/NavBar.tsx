@@ -27,7 +27,8 @@ import {
 } from "@mui/icons-material";
 import { useStore } from "../../lib/hooks/useStore";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
-import { setActivityToken } from "../../lib/api/activitySession";
+import { changeSession } from "../../lib/api/changeSession";
+import { toast } from 'react-toastify';
 import AuthDialog from "../../features/home/AuthDialog";
 import "./navbar-buttons.css";
 
@@ -104,20 +105,16 @@ export default function NavBar() {
         ]
       : []),
 
-    ...(staff
+    ...(staff || effectiveRoles.includes('Practitioner')
       ? [
           {
             to: "/patients",
             label: "Páciensek",
             Icon: PeopleAltRounded,
           },
-          {
-            to: "/practitioners",
-            label: "Kezelők",
-            Icon: MedicalServicesRounded,
-          },
         ]
       : []),
+    ...(session.authenticated ? [{ to: '/practitioners', label: 'Kezelők', Icon: MedicalServicesRounded }] : []),
   ];
 
   function closeUserPopover() {
@@ -145,15 +142,14 @@ export default function NavBar() {
     setLoggingOut(true);
 
     try {
-      await cache.cancelQueries();
-      cache.clear();
-
-      setActivityToken("");
+      await changeSession(cache);
 
       closeUserPopover();
       setMenu(false);
 
       await navigate("/");
+    } catch {
+      toast.error('A helyi munkamenet törölve. A szerver nem elérhető, ezért a szerveroldali kiléptetést nem sikerült megerősíteni.');
     } finally {
       setLoggingOut(false);
     }
@@ -220,7 +216,7 @@ export default function NavBar() {
                 aria-haspopup="dialog"
                 aria-expanded={!!anchor}
                 aria-controls={anchor ? "eu-user-popover" : undefined}
-                onClick={(e) => setAnchor(e.currentTarget)}
+                onClick={(e) => { if (!session.authenticated) openAuthDialog(); else { e.currentTarget.blur(); setAnchor(e.currentTarget); } }}
               >
                 <AccountCircleRounded fontSize="small" />
 
@@ -289,7 +285,9 @@ export default function NavBar() {
         }}
       >
         <Box
-          role="group"
+          role="dialog"
+          tabIndex={-1}
+          ref={(element: HTMLElement | null) => { if (element) element.focus(); }}
           aria-labelledby="eu-user-button"
           sx={{
             py: 0.5,

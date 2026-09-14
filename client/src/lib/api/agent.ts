@@ -44,7 +44,7 @@ agent.interceptors.response.use(
               modalStateErrors.push(data.errors[key]);
             }
           }
-          throw modalStateErrors.flat();
+          toast.error(modalStateErrors.flat().join(' '));
         } else {
           toast.error(
             typeof data === "string"
@@ -54,10 +54,11 @@ agent.interceptors.response.use(
         }
         break;
       case 409:
-        toast.error(data.message ?? "Ütközés az adatokban.");
+        toast.error(typeof data === 'string' ? data : data.message ?? "Ütközés az adatokban.");
         break;
       case 401:
-        if (getActivityToken()) setActivityToken('');
+        // A late response belonging to the previous user must not clear the new session.
+        if (getActivityToken() && error.config?.headers?.Authorization === `Bearer ${getActivityToken()}`) setActivityToken('');
         toast.error("A belépési adatok vagy a munkamenet nem érvényesek.");
         break;
       case 403:

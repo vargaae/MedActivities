@@ -85,6 +85,46 @@ namespace Persistence.Migrations.SqlServer
                     b.HasKey("Id");
 
                     b.ToTable("Activities");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("Domain.ActivityComment", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ActivityId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId", "CreatedAt");
+
+                    b.ToTable("ActivityComments");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.ActivityPractitioner", b =>
@@ -102,6 +142,8 @@ namespace Persistence.Migrations.SqlServer
                     b.HasIndex("ActivityId");
 
                     b.ToTable("ActivityPractitioners");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.AdminProfile", b =>
@@ -125,6 +167,8 @@ namespace Persistence.Migrations.SqlServer
                         .IsUnique();
 
                     b.ToTable("AdminProfiles");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.AdmissionsOfficeProfile", b =>
@@ -148,6 +192,8 @@ namespace Persistence.Migrations.SqlServer
                         .IsUnique();
 
                     b.ToTable("AdmissionsOfficeProfiles");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.Appointment", b =>
@@ -208,6 +254,44 @@ namespace Persistence.Migrations.SqlServer
 
                             t.HasCheckConstraint("CK_Appointment_Time", "DATEPART(MINUTE, [StartTime]) = 0 AND DATEPART(SECOND, [StartTime]) = 0 AND DATEPART(NANOSECOND, [StartTime]) = 0 AND CONVERT(time, [StartTime]) >= '08:00:00' AND CONVERT(time, [StartTime]) <= '19:00:00' AND [EndTime] = DATEADD(HOUR, 1, [StartTime])");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("Domain.DeletedRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("RecordKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TableName", "DeletedAtUtc");
+
+                    b.ToTable("DeletedRecords");
                 });
 
             modelBuilder.Entity("Domain.Patient", b =>
@@ -258,6 +342,8 @@ namespace Persistence.Migrations.SqlServer
                         .HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("Patients");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PatientActivity", b =>
@@ -275,6 +361,8 @@ namespace Persistence.Migrations.SqlServer
                     b.HasIndex("ActivityId");
 
                     b.ToTable("PatientActivities");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PatientDocument", b =>
@@ -322,6 +410,8 @@ namespace Persistence.Migrations.SqlServer
                     b.HasIndex("UploadedByUserId");
 
                     b.ToTable("PatientDocuments");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PatientNote", b =>
@@ -358,6 +448,8 @@ namespace Persistence.Migrations.SqlServer
                     b.HasIndex("PatientId");
 
                     b.ToTable("PatientNotes");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PatientPractitionerAccess", b =>
@@ -378,6 +470,8 @@ namespace Persistence.Migrations.SqlServer
                     b.HasIndex("PractitionerId");
 
                     b.ToTable("PatientPractitionerAccesses");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PractitionerBookingSettings", b =>
@@ -400,6 +494,8 @@ namespace Persistence.Migrations.SqlServer
                         .IsUnique();
 
                     b.ToTable("PractitionerBookingSettings");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PractitionerProfile", b =>
@@ -443,6 +539,8 @@ namespace Persistence.Migrations.SqlServer
                         .IsUnique();
 
                     b.ToTable("Practitioners");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Domain.PractitionerWorkingHours", b =>
@@ -474,6 +572,8 @@ namespace Persistence.Migrations.SqlServer
                         .IsUnique();
 
                     b.ToTable("PractitionerWorkingHours");
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -680,6 +780,17 @@ namespace Persistence.Migrations.SqlServer
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.ActivityComment", b =>
+                {
+                    b.HasOne("Domain.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
                 });
 
             modelBuilder.Entity("Domain.ActivityPractitioner", b =>

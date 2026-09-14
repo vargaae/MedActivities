@@ -14,7 +14,7 @@ import {
   CheckRounded,
   HubOutlined,
 } from "@mui/icons-material";
-import { setActivityToken } from "../../lib/api/activitySession";
+import { changeSession } from "../../lib/api/changeSession";
 import AuthDialog from "./AuthDialog";
 
 const roles = [
@@ -68,16 +68,18 @@ export default function HomePage() {
     setPending(role);
     setError("");
     try {
-      const { data } = await axios.post<{ accessToken: string }>(
+      await changeSession(cache, async () => (await axios.post<{ accessToken: string }>(
         `${base}/dev-session/${role}`,
-      );
-      await cache.cancelQueries();
-      cache.clear();
-      setActivityToken(data.accessToken);
+      )).data.accessToken);
       await navigate("/activities");
-    } catch {
+    } catch (failure) {
+      const status = axios.isAxiosError(failure) ? failure.response?.status : undefined;
       setError(
-        "A demóbelépés most nem sikerült. Ellenőrizd, hogy a helyi API fejlesztői módban fut-e.",
+        status === 404
+          ? "A demóbelépés csak helyi, fejlesztői módban futó API-val használható."
+          : status === 500
+            ? "A demófiók előkészítésekor szerverhiba történt. Ellenőrizd az API naplóját, majd indítsd újra a javított API-t."
+            : "A demóbelépés nem sikerült. Ellenőrizd, hogy elérhető-e a helyi API.",
       );
     } finally {
       setPending("");

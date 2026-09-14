@@ -3,7 +3,7 @@ import { Alert, Box, Button, Dialog, DialogContent, DialogTitle, MenuItem, Tab, 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import axios from 'axios';
-import { setActivityToken } from '../../lib/api/activitySession';
+import { changeSession } from '../../lib/api/changeSession';
 export default function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
     const [mode, setMode] = useState(0);
     const [form, setForm] = useState({ userName: '', password: '', email: '', name: '', role: 'Patient', tajNumber: '', birthDate: '', specialty: 'Orvos' });
@@ -22,8 +22,7 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
                         await axios.post(`${base}/session/register`, { ...form, birthDate: form.birthDate || '2000-01-01' });
                         setMode(0); setForm({ ...form, password: '' }); setSuccess(true); setMessage('A fiók és a profil elkészült. Jelentkezz be.');
                     } else {
-                        const { data } = await axios.post<{ accessToken: string }>(`${base}/session/login`, { userName: form.userName, password: form.password });
-                        await cache.cancelQueries(); cache.clear(); setActivityToken(data.accessToken);
+                        await changeSession(cache, async () => (await axios.post<{ accessToken: string }>(`${base}/session/login`, { userName: form.userName, password: form.password })).data.accessToken);
                         setForm({ ...form, password: '' }); onClose(); await navigate('/activities');
                     }
                 } catch (error) {

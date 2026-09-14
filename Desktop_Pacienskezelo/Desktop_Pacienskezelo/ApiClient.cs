@@ -11,13 +11,28 @@ public sealed class ApiClient : IDisposable
     public Session? Session { get; private set; }
     public bool Staff => Session?.Roles.Any(r => r is "Admin" or "AdmissionsOffice") == true;
     public Uri? BaseAddress => http.BaseAddress;
-    public async Task Login(string url, string userName, string password)
+    private void ConfigureAddress(string url)
     {
         if (!Uri.TryCreate(url.TrimEnd('/') + "/", UriKind.Absolute, out var uri) ||
             uri.Scheme is not ("https" or "http") || !string.IsNullOrEmpty(uri.UserInfo) ||
             (uri.Scheme == "http" && !uri.IsLoopback))
             throw new InvalidOperationException("Érvényes HTTPS API-cím szükséges. HTTP csak localhost esetén használható.");
-        http.BaseAddress = uri;
+        if (http.BaseAddress is null) http.BaseAddress = uri;
+        else if (http.BaseAddress != uri) throw new InvalidOperationException("Másik API-hoz hozz létre új kapcsolatot.");
+    }
+    public async Task<string> CheckHealth(string url)
+    {
+        ConfigureAddress(url);
+        var health = await Get<Health>("health");
+        if (health.Status != "ok" || health.Database != "SqlServer")
+            throw new InvalidOperationException("A pácienskezelőhöz elérhető SQL Server API szükséges.");
+        return health.Database;
+    }
+    public async Task Login(string url, string userName, string password)
+    {
+        ConfigureAddress(url);
+        if (Session is not null) await LogoutAsync();
+        await CheckHealth(url);
         var token = await Post<Token>("session/login", new { userName, password });
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
         Session = await Get<Session>("session/me");
@@ -28,6 +43,11 @@ public sealed class ApiClient : IDisposable
         }
     }
     public void Logout() { Session = null; http.DefaultRequestHeaders.Authorization = null; }
+    public async Task LogoutAsync()
+    {
+        try { if (Session is not null) await Post("session/logout", new { }); }
+        finally { Logout(); }
+    }
     public Task<T> Get<T>(string path) => Send<T>(HttpMethod.Get, path);
     public Task<T> Post<T>(string path, object body) => Send<T>(HttpMethod.Post, path, JsonContent.Create(body));
     public async Task Post(string path, object body) => await Send<object?>(HttpMethod.Post, path, JsonContent.Create(body));
@@ -81,4 +101,5 @@ public sealed class ApiClient : IDisposable
     }
     public void Dispose() => http.Dispose();
     private sealed record Token(string AccessToken);
+    private sealed record Health(string Status, string Database);
 }

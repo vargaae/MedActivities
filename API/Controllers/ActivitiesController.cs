@@ -5,22 +5,25 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Persistence;
+using MediatR;
+using Application.Activities.Queries;
 
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/activities")]
-public class ActivitiesController(AppDbContext db, AccessService access, IWebHostEnvironment environment, BookingService booking) : ControllerBase
+public class ActivitiesController(AppDbContext db, AccessService access, IWebHostEnvironment environment, BookingService booking, IMediator mediator) : ControllerBase
 {
     bool Authenticated => User.Identity?.IsAuthenticated == true;
     IQueryable<Activity> Visible() => !Authenticated && environment.IsDevelopment()
         ? db.Activities : access.Activities();
 
     [HttpGet, AllowAnonymous]
-    public async Task<IActionResult> GetActivities(CancellationToken ct)
+    public async Task<IActionResult> GetActivities(CancellationToken ct, string? patientId = null, string? practitionerId = null)
     {
         if (!Authenticated) return Unauthorized();
-        return Ok(await Visible().AsNoTracking().OrderBy(a=>a.Date).Select(ActivityDto.Projection).ToListAsync(ct));
+        return Ok(await mediator.Send(new GetActivityList.Query(access.UserId,
+            User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray(), patientId, practitionerId), ct));
     }
 
     [HttpGet("{id}"), AllowAnonymous]

@@ -30,7 +30,8 @@ public static class DemoSessionSetup
 
     public static async Task SeedAsync(AppDbContext db,UserManager<AppUser> users,RoleManager<IdentityRole> roles)
     {
-        await using var tx=await db.Database.BeginTransactionAsync();
+        // A teljes adatfeltöltés saját tranzakciójába is beilleszthető.
+        await using var tx=db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync() : null;
         for(var i=0;i<Roles.Length;i++)
         {
             var role=Roles[i];var id=Prefix+role;
@@ -39,10 +40,12 @@ public static class DemoSessionSetup
             var username="demo.egeszsegut."+role.ToLowerInvariant();
             if(user is null)
             {
-                user=new AppUser{Id=id,UserName=username};
+                user=new AppUser{Id=id,UserName=username,Email=username+"@demo.example.invalid",EmailConfirmed=true};
                 MedSetup.Check(await users.CreateAsync(user)); // nincs közös vagy beégetett jelszó
             }
             if(user.UserName!=username)throw new InvalidOperationException("A demófiók azonosítója már foglalt.");
+            if(string.IsNullOrWhiteSpace(user.Email))
+                MedSetup.Check(await users.SetEmailAsync(user,username+"@demo.example.invalid"));
             var assigned=await users.GetRolesAsync(user);
             if(assigned.Any(r=>r!=role))throw new InvalidOperationException("A demófiók szerepköreit megváltoztatták; a demóbelépés leállt.");
             if(!assigned.Contains(role))MedSetup.Check(await users.AddToRoleAsync(user,role));
@@ -69,6 +72,7 @@ public static class DemoSessionSetup
             a.ActivityPractitioners.Add(new(){ActivityId=a.Id,PractitionerId=doctorId});
             db.Activities.Add(a);
         }
-        await db.SaveChangesAsync();await tx.CommitAsync();
+        await db.SaveChangesAsync();
+        if(tx is not null)await tx.CommitAsync();
     }
 }
