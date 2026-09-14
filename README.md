@@ -303,31 +303,15 @@ Az API publish nem fordítja és nem csomagolja automatikusan a frontendet. Köz
 A fenti publish parancsok keretrendszerfüggő kimenetet készítenek: az API-hoz .NET 10 ASP.NET Core Runtime, a WinForms futtatásához .NET 10 Desktop Runtime szükséges. Telepítéskor külön állítsd be az SQL Server-kapcsolatot, alkalmazd a migrációkat, és használj nem demó felhasználói fiókokat.
 
 Forráskódos beadásnál a README, a projektfájlok, a `dotnet-tools.json`, a `client/package-lock.json`, a migrációk és a szkriptek is legyenek benne a csomagban. Valós betegadat, jelszó, adatbázisfájl, mentés, `.vs`, `node_modules`, `bin`, `obj` vagy tesztartefaktum ne kerüljön a forráscsomagba.
-
-## Hibaelhárítás
-
-| Jelenség                                                                                  | Teendő                                                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MSB3021`, `MSB3027`, ismételt DLL-másolási hiba; a napló futó `API` folyamatot nevez meg | Állítsd le a futó API-t `Ctrl+C`-vel vagy Visual Studio-ban, majd fordíts újra. Friss, sikeres build után az EF-parancshoz használható a `--no-build`.                                                     |
-| `bash: ... command not found` a `$env:...` soroknál                                       | A parancsokat PowerShellben futtasd. Git Bashben más a környezeti változók szintaxisa.                                                                                                                     |
-| A bemásolt `PS C:\...>` sort a shell parancsként értelmezi                                | Csak a parancsot másold be, a terminál promptját és a korábbi kimenetet ne.                                                                                                                                |
-| `No migrations were applied. The database is already up to date.`                         | Sikeres eredmény: nincs alkalmazandó migráció.                                                                                                                                                             |
-| `/api/health` nem érhető el, vagy adatbázishibát jelez                                    | Ellenőrizd az API terminálját, a futó SQL Server-példányt, a connection stringet és a HTTPS-tanúsítványt.                                                                                                  |
-| A WinForms nem fogadja el a kapcsolatot                                                   | Az API health-válaszában `SqlServer` szerepeljen; a cím végén legyen `/api`. Jelszavas dolgozói fiókot használj.                                                                                           |
-| „A demóbelépés most nem sikerült” / `/api/dev-session/Admin` 500                          | Előbb migrálj és töltsd fel a demóadatokat, majd indítsd az API-t a `https` launch profile-lal. A 500 pontos okát az API termináljában keresd; ellenőrizd, hogy az aktuális forrásból készült build fut-e. |
-| `pwsh` vagy `SqlLocalDB` nem található                                                    | Az adott eszköz nincs telepítve vagy nincs a PATH-ban. A példák PowerShell 7-et és telepített LocalDB-t feltételeznek.                                                                                     |
-| A teljes `MedActivities.slnx` buildje hiányzó `Desktop` projektre hivatkozik              | Használd a fenti aktív projektparancsokat és a külön WinForms solutiont; a gyökérsolution régi hivatkozása rendezendő.                                                                                     |
+|
 
 ## Ismert korlátozások
 
-- A hiányzó régi `Desktop` projekt miatt a gyökérsolution és a `Desktop.IntegrationTests` jelenleg nem teljes; a külön SQL Server/API/WinForms projektútvonalak használhatók.
-- A repo SQLite-függőségei között `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 szerepel; a korábbi restore/build kimenet ehhez `NU1903` biztonsági figyelmeztetést jelzett. A SQL Server profil választása nem távolítja el ezt a csomagfüggőséget. A figyelmeztetés rendezéséhez külön függőségfrissítés és ellenőrzés szükséges.
 - A dokumentumfeltöltés méret-, fájlnév- és alapvető tartalomellenőrzést végez; nincs beépített víruskereső.
-- Nincs automatikus SQLite → SQL Server adatimport vagy felületi archívum-visszaállítás.
 
 ## Bemutatás előtti ellenőrzés
 
-- [ ] A migráció naprakész, az API health-válasza `SqlServer`.
+- [x] A migráció naprakész, az API health-válasza `SqlServer`.
 - [ ] A demófeltöltés lefutott; a darabszámokat a státuszparancs visszaadja.
 - [ ] Mind a négy webes DEMÓ belépés és a szerepkör szerinti adatláthatóság kipróbálva.
 - [ ] Páciens, esemény, időpont, dokumentum, megjegyzés és chat kipróbálva.

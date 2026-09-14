@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useActivities } from "../../lib/hooks/useActivities";
 import { Link, NavLink } from "react-router";
 import { Observer } from "mobx-react-lite";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, LinearProgress } from "@mui/material";
 import {
   AddRounded,
   MenuRounded,
@@ -14,14 +14,12 @@ import {
   MedicalServicesRounded,
   AccountCircleRounded,
 } from "@mui/icons-material";
-import { useStore } from "../../lib/hooks/useStore";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import AuthDialog from "../../features/home/AuthDialog";
 import UserMenu from "./UserMenu";
 import "./navbar-buttons.css";
 
 export default function NavBar() {
-  const { uiStore } = useStore();
   const { isPending } = useActivities();
   const session = useActivityAccess();
 
@@ -201,6 +199,22 @@ export default function NavBar() {
             </div>
           </nav>
         </div>
+        <Observer>
+          {() =>
+            isPending ? (
+              <LinearProgress
+                aria-label="Betöltés folyamatban"
+                sx={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 2,
+                }}
+              />
+            ) : null
+          }
+        </Observer>
       </header>
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
