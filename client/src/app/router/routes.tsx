@@ -30,8 +30,8 @@ export const router = createBrowserRouter([
             { path: 'patients', element: <RequireSession roles={['Admin','AdmissionsOffice','Practitioner']}><PatientsPage /></RequireSession> },
             { path: 'practitioners', element: <RequireSession><PractitionersPage /></RequireSession> },
             { path: 'users', element: <RequireSession roles={['Admin']}><UsersPage /></RequireSession> },
-            { path: 'counter', element: <Counter /> },
-            { path: 'errors', element: <TestErrors /> },
+            { path: 'counter', element: <RequireSession roles={['Admin']}><Counter /></RequireSession> },
+            { path: 'errors', element: <RequireSession roles={['Admin']}><TestErrors /></RequireSession> },
             { path: 'not-found', element: <NotFound /> },
             { path: 'server-error', element: <ServerError /> },
             { path: '*', element: <Navigate replace to='/not-found' /> }

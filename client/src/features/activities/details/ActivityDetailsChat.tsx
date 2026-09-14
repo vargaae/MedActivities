@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert, Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
 import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from '@microsoft/signalr';
-import { getActivityToken } from '../../../lib/api/activitySession';
+import { getActivitySessionVersion, getActivityToken, subscribeActivitySession } from '../../../lib/api/activitySession';
 
 type Comment = { id: string; displayName: string; body: string; createdAt: string };
 export default function ActivityDetailsChat({ activityId }: { activityId: string }) {
+    const sessionVersion = useSyncExternalStore(subscribeActivitySession, getActivitySessionVersion);
+    const token = getActivityToken();
     const [comments, setComments] = useState<Comment[]>([]);
     const [body, setBody] = useState('');
     const [error, setError] = useState('');
@@ -13,10 +15,16 @@ export default function ActivityDetailsChat({ activityId }: { activityId: string
     const connection = useRef<HubConnection | null>(null);
     useEffect(() => {
         let active = true;
+        if (!token) {
+            setConnected(false);
+            setComments([]);
+            setError('A chat használatához be kell jelentkezni.');
+            return;
+        }
         const base = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '');
         const hub = new HubConnectionBuilder()
             .withUrl(base + '/chat?activityId=' + encodeURIComponent(activityId), { accessTokenFactory: getActivityToken, withCredentials: false })
-            .withAutomaticReconnect().configureLogging(LogLevel.Error).build();
+            .withAutomaticReconnect().configureLogging(LogLevel.None).build();
         connection.current = hub;
         const reload = async () => {
             try {
@@ -30,10 +38,15 @@ export default function ActivityDetailsChat({ activityId }: { activityId: string
         hub.onreconnecting(() => { if (active) setConnected(false); });
         hub.onreconnected(() => { void reload(); });
         hub.onclose(() => { if (active) { setConnected(false); setError('A chatkapcsolat megszakadt. Frissítsd az oldalt.'); } });
-        void hub.start().then(async () => { if (!active) { await hub.stop(); return; } await reload(); })
+        // React StrictMode fejlesztői módban rögtön újramountolja a komponenst.
+        // A késleltetett indítás megakadályozza, hogy az első, már megszüntetett
+        // kapcsolat a negotiation közben leálljon.
+        const startTimer = window.setTimeout(() => {
+            void hub.start().then(async () => { if (!active) { await hub.stop(); return; } await reload(); })
             .catch(() => { if (active) setError('A chat nem kapcsolódott. Ellenőrizd a belépést és az API-t.'); });
-        return () => { active = false; connection.current = null; void hub.stop(); };
-    }, [activityId]);
+        }, 0);
+        return () => { active = false; window.clearTimeout(startTimer); connection.current = null; void hub.stop(); };
+    }, [activityId, sessionVersion, token]);
     return <Card sx={{ mt: 3 }}><CardContent>
         <Typography variant="h6">Eseményhez tartozó beszélgetés</Typography>
         <Typography variant="body2" color="text.secondary">Az eseményhez hozzáférők látják. Az utolsó 200 üzenet jelenik meg.</Typography>
