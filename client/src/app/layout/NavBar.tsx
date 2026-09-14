@@ -1,66 +1,32 @@
 import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useActivities } from "../../lib/hooks/useActivities";
+import { Link, NavLink } from "react-router";
 import { Observer } from "mobx-react-lite";
-import {
-  Box,
-  LinearProgress,
-  ListItemIcon,
-  ListItemText,
-  Popover,
-} from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import {
   AddRounded,
-  ArrowOutwardRounded,
-  LogoutRounded,
   MenuRounded,
   CloseRounded,
-  ShieldOutlined,
   HomeRounded,
   EventRounded,
   CalendarMonthRounded,
   PeopleAltRounded,
   MedicalServicesRounded,
-  ManageAccountsRounded,
   AccountCircleRounded,
-  ExpandMoreRounded,
 } from "@mui/icons-material";
 import { useStore } from "../../lib/hooks/useStore";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
-import { changeSession } from "../../lib/api/changeSession";
-import { toast } from "react-toastify";
 import AuthDialog from "../../features/home/AuthDialog";
+import UserMenu from "./UserMenu";
 import "./navbar-buttons.css";
-
-const labels: Record<string, string> = {
-  Admin: "ADMIN",
-  AdmissionsOffice: "Felvételi iroda",
-  Practitioner: "Kezelő",
-  Patient: "Páciens",
-};
-
-function displayRole(role: string) {
-  const normalized = role.trim().toLowerCase();
-  if (normalized === "admin") return "ADMIN";
-  if (normalized === "admissionsoffice" || normalized === "admissions office")
-    return "Felvételi iroda";
-  if (normalized === "practitioner") return "Kezelőorvos";
-  if (normalized === "patient") return "Páciens";
-  return labels[role] ?? role;
-}
 
 export default function NavBar() {
   const { uiStore } = useStore();
+  const { isPending } = useActivities();
   const session = useActivityAccess();
-  const cache = useQueryClient();
-  const navigate = useNavigate();
 
   const [menu, setMenu] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-
-  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
-
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const roles = session.data?.roles ?? [];
 
@@ -70,12 +36,6 @@ export default function NavBar() {
       role.trim().toLowerCase(),
     ),
   );
-  const admin = effectiveRoles.some(
-    (role) => role.trim().toLowerCase() === "admin",
-  );
-  const roleLabel =
-    effectiveRoles.map(displayRole).join(", ") ||
-    (session.isError ? "" : "Sikeres bejelentkezés");
 
   const links = [
     {
@@ -133,12 +93,7 @@ export default function NavBar() {
       : []),
   ];
 
-  function closeUserPopover() {
-    setAnchor(null);
-  }
-
   function openAuthDialog() {
-    closeUserPopover();
     setMenu(false);
 
     const activeElement = document.activeElement;
@@ -150,27 +105,6 @@ export default function NavBar() {
     requestAnimationFrame(() => {
       setAuthOpen(true);
     });
-  }
-
-  async function logout() {
-    if (loggingOut) return;
-
-    setLoggingOut(true);
-
-    try {
-      await changeSession(cache);
-
-      closeUserPopover();
-      setMenu(false);
-
-      await navigate("/");
-    } catch {
-      toast.error(
-        "A helyi munkamenet törölve. A szerver nem elérhető, ezért a szerveroldali kiléptetést nem sikerült megerősíteni.",
-      );
-    } finally {
-      setLoggingOut(false);
-    }
   }
 
   return (
@@ -189,6 +123,32 @@ export default function NavBar() {
               width="231"
               height="45"
             />
+            <Box
+              component="span"
+              sx={{
+                position: "relative",
+                display: { xs: "none", md: "inline-flex" },
+                alignItems: "center",
+              }}
+            >
+              <Observer>
+                {() =>
+                  isPending ? (
+                    <CircularProgress
+                      size={20}
+                      thickness={7}
+                      aria-label="Betöltés folyamatban"
+                      sx={{
+                        color: "black",
+                        position: "absolute",
+                        top: "30%",
+                        left: "105%",
+                      }}
+                    />
+                  ) : null
+                }
+              </Observer>
+            </Box>
           </Link>
 
           <button
@@ -226,163 +186,22 @@ export default function NavBar() {
             ))}
 
             <div className="eu-nav-session">
-              <button
-                type="button"
-                id="eu-user-button"
-                className="eu-user-trigger eu-role-pill"
-                aria-label="User menu"
-                aria-haspopup="dialog"
-                aria-expanded={!!anchor}
-                aria-controls={anchor ? "eu-user-popover" : undefined}
-                onClick={(e) => {
-                  if (!session.authenticated) openAuthDialog();
-                  else {
-                    e.currentTarget.blur();
-                    setAnchor(e.currentTarget);
-                  }
-                }}
-              >
-                <AccountCircleRounded fontSize="small" />
-
-                <span className="eu-user-copy">
-                  {session.authenticated ? (
-                    <>
-                      <strong>{session.data?.userName || "Felhasználó"}</strong>
-                      <small>{roleLabel}</small>
-                    </>
-                  ) : (
-                    <span>Bejelentkezés</span>
-                  )}
-                </span>
-
-                <ExpandMoreRounded
-                  fontSize="small"
-                  className={
-                    anchor ? "eu-user-chevron is-open" : "eu-user-chevron"
-                  }
-                />
-              </button>
+              {session.authenticated ? (
+                <UserMenu />
+              ) : (
+                <button
+                  type="button"
+                  className="eu-user-trigger eu-role-pill"
+                  onClick={openAuthDialog}
+                >
+                  <AccountCircleRounded fontSize="small" />
+                  <span>Bejelentkezés</span>
+                </button>
+              )}
             </div>
           </nav>
         </div>
-
-        <Observer>
-          {() =>
-            uiStore.isLoading ? (
-              <LinearProgress
-                sx={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 2,
-                }}
-              />
-            ) : null
-          }
-        </Observer>
       </header>
-
-      <Popover
-        id="eu-user-popover"
-        open={!!anchor}
-        anchorEl={anchor}
-        onClose={closeUserPopover}
-        disableScrollLock
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "right",
-        }}
-        transformOrigin={{
-          vertical: "top",
-          horizontal: "right",
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 1,
-              minWidth: 230,
-              borderRadius: 3,
-              overflow: "hidden",
-            },
-          },
-        }}
-      >
-        <Box
-          role="dialog"
-          tabIndex={-1}
-          ref={(element: HTMLElement | null) => {
-            if (element) element.focus();
-          }}
-          aria-labelledby="eu-user-button"
-          sx={{
-            py: 0.5,
-          }}
-        >
-          {session.authenticated && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.25,
-                px: 2,
-                py: 1.25,
-                color: "text.secondary",
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 32,
-                }}
-              >
-                <ShieldOutlined fontSize="small" />
-              </ListItemIcon>
-
-              <ListItemText
-                primary={session.data?.userName || "Felhasználó"}
-                secondary={roleLabel}
-              />
-            </Box>
-          )}
-
-          {admin && (
-            <Link
-              to="/users"
-              className="eu-user-popover-item"
-              onClick={() => {
-                closeUserPopover();
-                setMenu(false);
-              }}
-            >
-              <ManageAccountsRounded fontSize="small" />
-              <span>Felhasználók kezelése</span>
-            </Link>
-          )}
-
-          {!session.authenticated && (
-            <button
-              type="button"
-              className="eu-user-popover-item"
-              onClick={openAuthDialog}
-            >
-              <ArrowOutwardRounded fontSize="small" />
-              <span>Belépés / regisztráció</span>
-            </button>
-          )}
-
-          {session.authenticated && (
-            <button
-              type="button"
-              className="eu-user-popover-item"
-              disabled={loggingOut}
-              onClick={() => void logout()}
-            >
-              <LogoutRounded fontSize="small" />
-              <span>{loggingOut ? "Kijelentkezés..." : "Kijelentkezés"}</span>
-            </button>
-          )}
-        </Box>
-      </Popover>
 
       <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </>
