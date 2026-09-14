@@ -30,24 +30,24 @@ Az alapértelmezett adatbázis **Microsoft SQL Server**. A SQLite külön fejles
 - **Felhasználókezelés:** Identity-alapú regisztráció és tokenes bejelentkezés, adminisztráció, szerepkörök és kijelentkezéskor szerveroldali munkamenet-érvénytelenítés.
 - **Törlési archívum:** SQL Server-triggerek tárolják a támogatott üzleti táblákból törölt rekordok állapotát, a törlés idejét és végrehajtóját.
 
-| Szerepkör | Fő jogosultságok |
-| --- | --- |
-| `Admin` | Teljes üzleti adatkezelés; felhasználók, szerepkörök, kezelőprofilok, munkaidő és foglalhatóság adminisztrációja. |
-| `AdmissionsOffice` – felvételi iroda | Páciensek, kezelői hozzáférések, események és időpontok kezelése; páciensdokumentumok és megjegyzések kezelése. |
-| `Practitioner` – kezelő | Hozzárendelt páciensek és események elérése, engedélyezett eseménymódosítások, saját foglalások státuszkezelése; hozzáférhető feljegyzések és chat. |
-| `Patient` – páciens | Saját adatlap, elérhetőségek, események, feljegyzések és chat; saját időpont foglalása, átfoglalása és lemondása a weben. |
+| Szerepkör                            | Fő jogosultságok                                                                                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Admin`                              | Teljes üzleti adatkezelés; felhasználók, szerepkörök, kezelőprofilok, munkaidő és foglalhatóság adminisztrációja.                                   |
+| `AdmissionsOffice` – felvételi iroda | Páciensek, kezelői hozzáférések, események és időpontok kezelése; páciensdokumentumok és megjegyzések kezelése.                                     |
+| `Practitioner` – kezelő              | Hozzárendelt páciensek és események elérése, engedélyezett eseménymódosítások, saját foglalások státuszkezelése; hozzáférhető feljegyzések és chat. |
+| `Patient` – páciens                  | Saját adatlap, elérhetőségek, események, feljegyzések és chat; saját időpont foglalása, átfoglalása és lemondása a weben.                           |
 
 A részletes jogosultságokat az API minden kérésnél ellenőrzi. Megjegyzést és dokumentumot a szerző/feltöltő vagy az admin/felvételi iroda módosíthat, ha a pácienshez is van hozzáférése. Kapcsolt páciens vagy kezelő törlését az API elutasíthatja; a felület ilyenkor jelzi a fennálló kapcsolatot.
 
 ## Technológiák és projektstruktúra
 
-| Réteg | Technológia |
-| --- | --- |
-| Web | React 19, TypeScript 5.9, Vite 7, Material UI, React Router, TanStack Query, Axios |
-| API és alkalmazási réteg | C#, .NET 10, ASP.NET Core, ASP.NET Core Identity, MediatR, SignalR |
-| Adatelérés | Entity Framework Core 10, SQL Server; külön SQLite fejlesztési profil |
-| Asztali kliens | .NET 10 Windows Forms, külön `.Designer.cs` és `.resx` fájlok |
-| Ellenőrzés | Saját SQL Server/API/WinForms integrációs tesztprogram, TypeScript, ESLint, Vite build |
+| Réteg                    | Technológia                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Web                      | React 19, TypeScript 5.9, Vite 7, Material UI, React Router, TanStack Query, Axios     |
+| API és alkalmazási réteg | C#, .NET 10, ASP.NET Core, ASP.NET Core Identity, MediatR, SignalR                     |
+| Adatelérés               | Entity Framework Core 10, SQL Server; külön SQLite fejlesztési profil                  |
+| Asztali kliens           | .NET 10 Windows Forms, külön `.Designer.cs` és `.resx` fájlok                          |
+| Ellenőrzés               | Saját SQL Server/API/WinForms integrációs tesztprogram, TypeScript, ESLint, Vite build |
 
 ```text
 React web ─────────┐
@@ -67,13 +67,10 @@ Persistence/                      EF Core modellek és adatbázis-konfiguráció
 client/                           Aktív React webes alkalmazás
 Desktop_Pacienskezelo/             Aktív Windows Forms megoldás és projekt
 IntegrationTests/                 SQL Server/API/WinForms integrációs tesztprogram
-Desktop.IntegrationTests/         Korábbi SQLite desktop tesztprojekt; hiányzó függőséggel
 scripts/                          API-indítás, migráció és demóadmin segédszkriptek
 docs/                             Kiegészítő dokumentáció
 archive/web-tutorial/              Megőrzött, az aktív frontendből kivont példakód
 ```
-
-**A jelenlegi gyökérsolution korlátozása:** a `MedActivities.slnx` és a régi `Desktop.IntegrationTests` projekt a már nem szereplő `Desktop/MedActivities.Patient.Sqlite.WinForms.csproj` fájlra hivatkozik. Emiatt a teljes gyökérsolution fordítása jelenleg nem megfelelő ellenőrzőparancs. Az alábbi útmutató az aktív projektek külön fordítását használja; a WinForms saját [solutionje](Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx) a meglévő projektre mutat.
 
 ## Előfeltételek
 
@@ -203,12 +200,12 @@ A feltöltő céldarabszámai: **100 páciens, 50 kezelő és 1000 esemény**. A
 
 A generált adatok fiktívek. A kezelők hétköznapi 08:00–16:00 munkaidőt és engedélyezett foglalhatóságot kapnak. Az 1000 esemény betegút-előzményt jelent; a foglalások külön, a foglalási felületen hozhatók létre.
 
-| Webes DEMÓ gomb | Felhasználónév | Szerepkör |
-| --- | --- | --- |
-| ADMIN | `demo.egeszsegut.admin` | `Admin` |
+| Webes DEMÓ gomb | Felhasználónév                     | Szerepkör          |
+| --------------- | ---------------------------------- | ------------------ |
+| ADMIN           | `demo.egeszsegut.admin`            | `Admin`            |
 | Felvételi iroda | `demo.egeszsegut.admissionsoffice` | `AdmissionsOffice` |
-| Kezelőorvos | `demo.egeszsegut.practitioner` | `Practitioner` |
-| Páciens | `demo.egeszsegut.patient` | `Patient` |
+| Kezelőorvos     | `demo.egeszsegut.practitioner`     | `Practitioner`     |
+| Páciens         | `demo.egeszsegut.patient`          | `Patient`          |
 
 Ezek jelszó nélküli bemutatófiókok, a kezdőlap gombjai valódi Identity-munkamenetet hoznak létre. A végpont csak helyi, `Development` környezetben futó API-n használható. A demófiókok – a külön jelszavas desktop demóadmint is beleértve – `Production` környezetben tiltottak.
 
@@ -220,18 +217,18 @@ További részletek: [Demóadatok és demóbelépés](docs/DEMO-DATA.md).
 
 Az alapbeállítások az [API/appsettings.json](API/appsettings.json) fájlban találhatók. Környezeti változóval felülírhatók; a PowerShellben beállított változókat csak az abból indított folyamatok öröklik. Másik terminálban a saját beállításaidat ismét add meg, ha eltérnek az alapértékektől.
 
-| Környezeti változó | Jelentés / alapérték |
-| --- | --- |
-| `Database__Provider` | `SqlServer`; másik választható érték: `Sqlite`. |
-| `ConnectionStrings__SqlServerConnection` | SQL Server-kapcsolat; alapból helyi LocalDB, `MedActivities` adatbázissal és Windows-hitelesítéssel. |
-| `ConnectionStrings__DefaultConnection` | SQLite-kapcsolat; alapból `Data Source=activities.db`. |
-| `Database__ApplyMigrations` | Automatikus induláskori migráció; alapból `false`. |
-| `Database__SeedDemoData` | Korábbi induláskori seed; alapból `false`. A 100/50/1000-es feltöltéshez a `--seed-demo-data` parancsot használd. |
-| `ASPNETCORE_ENVIRONMENT` | A `https` launch profile `Development` értéket állít be. |
-| `Cors__Origins__0`, `Cors__Origins__1` | Engedélyezett webes eredetek; alapból `http://localhost:3000` és `https://localhost:3000`. |
-| `MEDACTIVITIES_API_URL` | WinForms API-cím; alapból `https://localhost:5001/api`. |
-| `VITE_API_URL` | Webes API-alapcím; alapból `/api`. A frontend indításakor vagy fordításakor olvasódik be. |
-| `BootstrapAdmin__Email`, `BootstrapAdmin__Password` | Új, nem demó adminisztrátor létrehozása az API indulásakor. |
+| Környezeti változó                                  | Jelentés / alapérték                                                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `Database__Provider`                                | `SqlServer`; másik választható érték: `Sqlite`.                                                                   |
+| `ConnectionStrings__SqlServerConnection`            | SQL Server-kapcsolat; alapból helyi LocalDB, `MedActivities` adatbázissal és Windows-hitelesítéssel.              |
+| `ConnectionStrings__DefaultConnection`              | SQLite-kapcsolat; alapból `Data Source=activities.db`.                                                            |
+| `Database__ApplyMigrations`                         | Automatikus induláskori migráció; alapból `false`.                                                                |
+| `Database__SeedDemoData`                            | Korábbi induláskori seed; alapból `false`. A 100/50/1000-es feltöltéshez a `--seed-demo-data` parancsot használd. |
+| `ASPNETCORE_ENVIRONMENT`                            | A `https` launch profile `Development` értéket állít be.                                                          |
+| `Cors__Origins__0`, `Cors__Origins__1`              | Engedélyezett webes eredetek; alapból `http://localhost:3000` és `https://localhost:3000`.                        |
+| `MEDACTIVITIES_API_URL`                             | WinForms API-cím; alapból `https://localhost:5001/api`.                                                           |
+| `VITE_API_URL`                                      | Webes API-alapcím; alapból `/api`. A frontend indításakor vagy fordításakor olvasódik be.                         |
+| `BootstrapAdmin__Email`, `BootstrapAdmin__Password` | Új, nem demó adminisztrátor létrehozása az API indulásakor.                                                       |
 
 A bootstrap csak még nem létező e-mail-címhez hoz létre admint; meglévő fiókot nem emel adminná. A jelszót a futtatási környezet titokkezelésével add át, és a létrehozás után távolítsd el a bootstrap-beállításokat. Jelszó ne kerüljön verziókezelt konfigurációba vagy a beadandóba. A helyi példában használt `TrustServerCertificate=True` helyett éles telepítéshez ellenőrizhető SQL Server-tanúsítványt használj.
 
@@ -309,17 +306,17 @@ Forráskódos beadásnál a README, a projektfájlok, a `dotnet-tools.json`, a `
 
 ## Hibaelhárítás
 
-| Jelenség | Teendő |
-| --- | --- |
-| `MSB3021`, `MSB3027`, ismételt DLL-másolási hiba; a napló futó `API` folyamatot nevez meg | Állítsd le a futó API-t `Ctrl+C`-vel vagy Visual Studio-ban, majd fordíts újra. Friss, sikeres build után az EF-parancshoz használható a `--no-build`. |
-| `bash: ... command not found` a `$env:...` soroknál | A parancsokat PowerShellben futtasd. Git Bashben más a környezeti változók szintaxisa. |
-| A bemásolt `PS C:\...>` sort a shell parancsként értelmezi | Csak a parancsot másold be, a terminál promptját és a korábbi kimenetet ne. |
-| `No migrations were applied. The database is already up to date.` | Sikeres eredmény: nincs alkalmazandó migráció. |
-| `/api/health` nem érhető el, vagy adatbázishibát jelez | Ellenőrizd az API terminálját, a futó SQL Server-példányt, a connection stringet és a HTTPS-tanúsítványt. |
-| A WinForms nem fogadja el a kapcsolatot | Az API health-válaszában `SqlServer` szerepeljen; a cím végén legyen `/api`. Jelszavas dolgozói fiókot használj. |
-| „A demóbelépés most nem sikerült” / `/api/dev-session/Admin` 500 | Előbb migrálj és töltsd fel a demóadatokat, majd indítsd az API-t a `https` launch profile-lal. A 500 pontos okát az API termináljában keresd; ellenőrizd, hogy az aktuális forrásból készült build fut-e. |
-| `pwsh` vagy `SqlLocalDB` nem található | Az adott eszköz nincs telepítve vagy nincs a PATH-ban. A példák PowerShell 7-et és telepített LocalDB-t feltételeznek. |
-| A teljes `MedActivities.slnx` buildje hiányzó `Desktop` projektre hivatkozik | Használd a fenti aktív projektparancsokat és a külön WinForms solutiont; a gyökérsolution régi hivatkozása rendezendő. |
+| Jelenség                                                                                  | Teendő                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MSB3021`, `MSB3027`, ismételt DLL-másolási hiba; a napló futó `API` folyamatot nevez meg | Állítsd le a futó API-t `Ctrl+C`-vel vagy Visual Studio-ban, majd fordíts újra. Friss, sikeres build után az EF-parancshoz használható a `--no-build`.                                                     |
+| `bash: ... command not found` a `$env:...` soroknál                                       | A parancsokat PowerShellben futtasd. Git Bashben más a környezeti változók szintaxisa.                                                                                                                     |
+| A bemásolt `PS C:\...>` sort a shell parancsként értelmezi                                | Csak a parancsot másold be, a terminál promptját és a korábbi kimenetet ne.                                                                                                                                |
+| `No migrations were applied. The database is already up to date.`                         | Sikeres eredmény: nincs alkalmazandó migráció.                                                                                                                                                             |
+| `/api/health` nem érhető el, vagy adatbázishibát jelez                                    | Ellenőrizd az API terminálját, a futó SQL Server-példányt, a connection stringet és a HTTPS-tanúsítványt.                                                                                                  |
+| A WinForms nem fogadja el a kapcsolatot                                                   | Az API health-válaszában `SqlServer` szerepeljen; a cím végén legyen `/api`. Jelszavas dolgozói fiókot használj.                                                                                           |
+| „A demóbelépés most nem sikerült” / `/api/dev-session/Admin` 500                          | Előbb migrálj és töltsd fel a demóadatokat, majd indítsd az API-t a `https` launch profile-lal. A 500 pontos okát az API termináljában keresd; ellenőrizd, hogy az aktuális forrásból készült build fut-e. |
+| `pwsh` vagy `SqlLocalDB` nem található                                                    | Az adott eszköz nincs telepítve vagy nincs a PATH-ban. A példák PowerShell 7-et és telepített LocalDB-t feltételeznek.                                                                                     |
+| A teljes `MedActivities.slnx` buildje hiányzó `Desktop` projektre hivatkozik              | Használd a fenti aktív projektparancsokat és a külön WinForms solutiont; a gyökérsolution régi hivatkozása rendezendő.                                                                                     |
 
 ## Ismert korlátozások
 

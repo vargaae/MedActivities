@@ -4,9 +4,8 @@ import { store } from "../stores/store";
 import { toast } from "react-toastify";
 import { router } from "../../app/router/routes";
 
-
 const agent = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || "/api",
 });
 
 agent.interceptors.request.use((config) => {
@@ -44,7 +43,7 @@ agent.interceptors.response.use(
               modalStateErrors.push(data.errors[key]);
             }
           }
-          toast.error(modalStateErrors.flat().join(' '));
+          toast.error(modalStateErrors.flat().join(" "));
         } else {
           toast.error(
             typeof data === "string"
@@ -54,12 +53,21 @@ agent.interceptors.response.use(
         }
         break;
       case 409:
-        toast.error(typeof data === 'string' ? data : data.message ?? "Ütközés az adatokban.");
+        toast.error(
+          typeof data === "string"
+            ? data
+            : (data.message ?? "Ütközés az adatokban."),
+        );
         break;
       case 401:
         // A late response belonging to the previous user must not clear the new session.
-        if (getActivityToken() && error.config?.headers?.Authorization === `Bearer ${getActivityToken()}`) setActivityToken('');
-        toast.error("A belépési adatok vagy a munkamenet nem érvényesek.");
+        if (
+          getActivityToken() &&
+          error.config?.headers?.Authorization ===
+            `Bearer ${getActivityToken()}`
+        )
+          setActivityToken("");
+        toast.error("Sikeres kijelentkezés. Kérjük, jelentkezzen be újra.");
         break;
       case 403:
         toast.error("Nem engedélyezett hozzáférés.");

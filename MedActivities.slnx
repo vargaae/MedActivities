@@ -5,6 +5,4 @@
   <Project Path="Application/Application.csproj" />
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Persistence/Persistence.csproj" />
-  <Project Path="Desktop/MedActivities.Patient.Sqlite.WinForms.csproj" />
-  <Project Path="Desktop.IntegrationTests/Desktop.IntegrationTests.csproj" />
 </Solution>

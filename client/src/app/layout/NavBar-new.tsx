@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Observer } from "mobx-react-lite";
 import {
   Box,
@@ -25,11 +25,13 @@ import {
   AccountCircleRounded,
   ExpandMoreRounded,
 } from "@mui/icons-material";
+
 import { useStore } from "../../lib/hooks/useStore";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
-import { changeSession } from "../../lib/api/changeSession";
-import { toast } from "react-toastify";
+import { setActivityToken } from "../../lib/api/activitySession";
+import agent from "../../lib/api/agent";
 import AuthDialog from "../../features/home/AuthDialog";
+
 import "./navbar-buttons.css";
 
 const labels: Record<string, string> = {
@@ -39,18 +41,9 @@ const labels: Record<string, string> = {
   Patient: "Páciens",
 };
 
-function displayRole(role: string) {
-  const normalized = role.trim().toLowerCase();
-  if (normalized === "admin") return "ADMIN";
-  if (normalized === "admissionsoffice" || normalized === "admissions office")
-    return "Felvételi iroda";
-  if (normalized === "practitioner") return "Kezelőorvos";
-  if (normalized === "patient") return "Páciens";
-  return labels[role] ?? role;
-}
-
 export default function NavBar() {
   const { uiStore } = useStore();
+
   const session = useActivityAccess();
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -62,20 +55,55 @@ export default function NavBar() {
 
   const [loggingOut, setLoggingOut] = useState(false);
 
+  /*
+   * Annak jelzése, hogy a Popover bezárása után
+   * az AuthDialogot kell megnyitni.
+   */
+  const [openAuthAfterPopoverClose, setOpenAuthAfterPopoverClose] =
+    useState(false);
+
+  /*
+   * A Popovert megnyitó gomb.
+   *
+   * A Popover bezárása után ide adjuk vissza
+   * kézzel a fókuszt.
+   */
+  const popoverTrigger = useRef<HTMLButtonElement | null>(null);
+
+  /*
+   * A Popover saját tartalma.
+   *
+   * Nyitáskor ebben keressük meg azt az elemet,
+   * amely megkapja az első fókuszt.
+   */
+  const popoverContent = useRef<HTMLDivElement | null>(null);
+
   const roles = session.data?.roles ?? [];
 
-  const effectiveRoles = roles.length > 0 ? roles : (session.data?.roles ?? []);
-  const staff = effectiveRoles.some((role) =>
-    ["admin", "admissionsoffice", "admissions office"].includes(
-      role.trim().toLowerCase(),
-    ),
-  );
-  const admin = effectiveRoles.some(
-    (role) => role.trim().toLowerCase() === "admin",
-  );
+  const staff = roles.includes("Admin") || roles.includes("AdmissionsOffice");
+
+  const admin = roles.includes("Admin");
+
+  const me = useQuery({
+    queryKey: ["session-me", session.version],
+
+    enabled: session.authenticated && !session.isError,
+
+    retry: false,
+
+    queryFn: async ({ signal }) =>
+      (
+        await agent.get<{
+          userName: string;
+        }>("/session/me", {
+          signal,
+        })
+      ).data,
+  });
+
   const roleLabel =
-    effectiveRoles.map(displayRole).join(", ") ||
-    (session.isError ? "" : "Sikeres bejelentkezés");
+    roles.map((role) => labels[role] ?? role).join(", ") ||
+    (session.isError ? "Lejárt munkamenet" : "Belépve");
 
   const links = [
     {
@@ -83,15 +111,6 @@ export default function NavBar() {
       label: "Kezdőlap",
       Icon: HomeRounded,
     },
-    ...(session.authenticated
-      ? [
-          {
-            to: "/health-records",
-            label: "Adatlapkezelő",
-            Icon: AccountCircleRounded,
-          },
-        ]
-      : []),
     {
       to: "/activities",
       label: "Események",
@@ -113,17 +132,13 @@ export default function NavBar() {
         ]
       : []),
 
-    ...(staff || effectiveRoles.includes("Practitioner")
+    ...(staff
       ? [
           {
             to: "/patients",
             label: "Páciensek",
             Icon: PeopleAltRounded,
           },
-        ]
-      : []),
-    ...(session.authenticated
-      ? [
           {
             to: "/practitioners",
             label: "Kezelők",
@@ -133,23 +148,56 @@ export default function NavBar() {
       : []),
   ];
 
+  /*
+   * A Popover belépési animációjának kezdetén
+   * a fókuszt átvisszük a Popover egyik
+   * tényleges vezérlőelemére.
+   *
+   * Így nem marad fókusz a háttérben lévő
+   * #eu-user-button elemen, miközben a MUI
+   * aria-hidden="true"-t állít a háttérre.
+   */
+  function focusPopoverOnEnter() {
+    const initialFocus = popoverContent.current?.querySelector<HTMLElement>(
+      "[data-popover-initial-focus]",
+    );
+
+    initialFocus?.focus({
+      preventScroll: true,
+    });
+  }
+
+  function openUserPopover(event: React.MouseEvent<HTMLButtonElement>) {
+    popoverTrigger.current = event.currentTarget;
+
+    /*
+     * Levesszük a fókuszt a háttérben maradó
+     * trigger gombról még a Popover megnyitása előtt.
+     */
+    event.currentTarget.blur();
+
+    setAnchor(event.currentTarget);
+  }
+
   function closeUserPopover() {
     setAnchor(null);
   }
 
-  function openAuthDialog() {
-    closeUserPopover();
+  /*
+   * Az AuthDialogot nem nyitjuk meg azonnal.
+   *
+   * Először bezárjuk a Popovert, majd annak
+   * onExited eseménye fogja megnyitni a Dialogot.
+   */
+  function openAuthDialogFromPopover(
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    event.currentTarget.blur();
+
+    setOpenAuthAfterPopoverClose(true);
+
+    setAnchor(null);
     setMenu(false);
-
-    const activeElement = document.activeElement;
-
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur();
-    }
-
-    requestAnimationFrame(() => {
-      setAuthOpen(true);
-    });
   }
 
   async function logout() {
@@ -158,16 +206,16 @@ export default function NavBar() {
     setLoggingOut(true);
 
     try {
-      await changeSession(cache);
+      await cache.cancelQueries();
 
-      closeUserPopover();
+      cache.clear();
+
+      setActivityToken("");
+
+      setAnchor(null);
       setMenu(false);
 
       await navigate("/");
-    } catch {
-      toast.error(
-        "A helyi munkamenet törölve. A szerver nem elérhető, ezért a szerveroldali kiléptetést nem sikerült megerősíteni.",
-      );
     } finally {
       setLoggingOut(false);
     }
@@ -197,7 +245,7 @@ export default function NavBar() {
             aria-label={menu ? "Menü bezárása" : "Menü megnyitása"}
             aria-expanded={menu}
             aria-controls="eu-nav-links"
-            onClick={() => setMenu(!menu)}
+            onClick={() => setMenu((current) => !current)}
           >
             {menu ? <CloseRounded /> : <MenuRounded />}
           </button>
@@ -206,8 +254,8 @@ export default function NavBar() {
             id="eu-nav-links"
             className={`eu-nav-links ${menu ? "is-open" : ""}`}
             aria-label="Fő navigáció"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
                 setMenu(false);
               }
             }}
@@ -221,6 +269,7 @@ export default function NavBar() {
                 onClick={() => setMenu(false)}
               >
                 <Icon fontSize="small" />
+
                 <span>{label}</span>
               </NavLink>
             ))}
@@ -230,28 +279,19 @@ export default function NavBar() {
                 type="button"
                 id="eu-user-button"
                 className="eu-user-trigger eu-role-pill"
-                aria-label="User menu"
+                aria-label="Felhasználói menü"
                 aria-haspopup="dialog"
                 aria-expanded={!!anchor}
                 aria-controls={anchor ? "eu-user-popover" : undefined}
-                onClick={(e) => {
-                  if (!session.authenticated) openAuthDialog();
-                  else {
-                    e.currentTarget.blur();
-                    setAnchor(e.currentTarget);
-                  }
-                }}
+                onClick={openUserPopover}
               >
                 <AccountCircleRounded fontSize="small" />
 
                 <span className="eu-user-copy">
-                  {session.authenticated ? (
-                    <>
-                      <strong>{session.data?.userName || "Felhasználó"}</strong>
-                      <small>{roleLabel}</small>
-                    </>
-                  ) : (
-                    <span>Bejelentkezés</span>
+                  <strong>User menu</strong>
+
+                  {session.authenticated && (
+                    <small>{me.data?.userName ?? roleLabel}</small>
                   )}
                 </span>
 
@@ -289,6 +329,15 @@ export default function NavBar() {
         anchorEl={anchor}
         onClose={closeUserPopover}
         disableScrollLock
+        /*
+         * Ugyanaz az elv, mint a javított
+         * Dialogoknál:
+         *
+         * a MUI ne próbálja meg túl korán
+         * visszaállítani a fókuszt, miközben
+         * a háttér még aria-hidden.
+         */
+        disableRestoreFocus
         anchorOrigin={{
           vertical: "bottom",
           horizontal: "right",
@@ -298,6 +347,55 @@ export default function NavBar() {
           horizontal: "right",
         }}
         slotProps={{
+          transition: {
+            /*
+             * A Popover megjelenésekor rögtön
+             * saját, látható vezérlőelemre kerül
+             * a fókusz.
+             */
+            onEnter: focusPopoverOnEnter,
+
+            /*
+             * Csak a kilépési animáció teljes
+             * befejezése után állítjuk vissza
+             * a fókuszt.
+             */
+            onExited: () => {
+              /*
+               * Ha a Popoverből a login/regisztráció
+               * Dialogot nyitjuk meg, akkor NEM
+               * adjuk vissza a fókuszt a navbar
+               * gombjára.
+               *
+               * Ehelyett most nyitjuk meg a Dialogot.
+               */
+              if (openAuthAfterPopoverClose) {
+                setOpenAuthAfterPopoverClose(false);
+
+                popoverTrigger.current = null;
+
+                setAuthOpen(true);
+
+                return;
+              }
+
+              /*
+               * Normál Popover bezárás:
+               * visszaállítjuk a fókuszt az azt
+               * megnyitó gombra.
+               */
+              const trigger = popoverTrigger.current;
+
+              popoverTrigger.current = null;
+
+              if (trigger?.isConnected && !trigger.disabled) {
+                trigger.focus({
+                  preventScroll: true,
+                });
+              }
+            },
+          },
+
           paper: {
             sx: {
               mt: 1,
@@ -309,11 +407,8 @@ export default function NavBar() {
         }}
       >
         <Box
-          role="dialog"
-          tabIndex={-1}
-          ref={(element: HTMLElement | null) => {
-            if (element) element.focus();
-          }}
+          ref={popoverContent}
+          role="group"
           aria-labelledby="eu-user-button"
           sx={{
             py: 0.5,
@@ -339,7 +434,7 @@ export default function NavBar() {
               </ListItemIcon>
 
               <ListItemText
-                primary={session.data?.userName || "Felhasználó"}
+                primary={me.data?.userName ?? "Felhasználó"}
                 secondary={roleLabel}
               />
             </Box>
@@ -349,12 +444,19 @@ export default function NavBar() {
             <Link
               to="/users"
               className="eu-user-popover-item"
+              /*
+               * Ha admin van belépve,
+               * ez lesz a Popover első
+               * fókuszálható eleme.
+               */
+              data-popover-initial-focus
               onClick={() => {
-                closeUserPopover();
+                setAnchor(null);
                 setMenu(false);
               }}
             >
               <ManageAccountsRounded fontSize="small" />
+
               <span>Felhasználók kezelése</span>
             </Link>
           )}
@@ -363,9 +465,16 @@ export default function NavBar() {
             <button
               type="button"
               className="eu-user-popover-item"
-              onClick={openAuthDialog}
+              /*
+               * Kijelentkezett állapotban
+               * ez kapja meg a nyitáskori
+               * fókuszt.
+               */
+              data-popover-initial-focus
+              onClick={openAuthDialogFromPopover}
             >
               <ArrowOutwardRounded fontSize="small" />
+
               <span>Belépés / regisztráció</span>
             </button>
           )}
@@ -374,10 +483,21 @@ export default function NavBar() {
             <button
               type="button"
               className="eu-user-popover-item"
+              /*
+               * Nem admin felhasználónál
+               * ez lesz az első fókuszálható
+               * elem.
+               */
+              {...(!admin
+                ? {
+                    "data-popover-initial-focus": true,
+                  }
+                : {})}
               disabled={loggingOut}
               onClick={() => void logout()}
             >
               <LogoutRounded fontSize="small" />
+
               <span>{loggingOut ? "Kijelentkezés..." : "Kijelentkezés"}</span>
             </button>
           )}

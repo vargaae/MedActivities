@@ -66,7 +66,7 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
         b.Entity<Appointment>().HasOne(x => x.Practitioner).WithMany().HasForeignKey(x => x.PractitionerId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Appointment>().HasOne(x => x.Activity).WithOne().HasForeignKey<Appointment>(x => x.ActivityId).OnDelete(DeleteBehavior.Restrict);
         // A lemondott foglalás felszabadítja a helyet; Completed/NoShow továbbra is foglaltnak számít.
-        var sqlServer = Database.IsSqlServer();
+        var sqlServer = Database.ProviderName == "Microsoft.EntityFrameworkCore.SqlServer";
         b.Entity<Appointment>().HasIndex(x => new { x.PatientId, x.BookingDate }).IsUnique().HasFilter(sqlServer ? "[Status] <> 1" : "\"Status\" <> 1");
         b.Entity<Appointment>().HasIndex(x => new { x.PractitionerId, x.StartTime }).IsUnique().HasFilter(sqlServer ? "[Status] <> 1" : "\"Status\" <> 1");
         b.Entity<Appointment>().ToTable(t => {
@@ -78,9 +78,6 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
         });
         if (sqlServer)
         {
-            // SQL Server tables with DELETE triggers cannot use EF's bare OUTPUT clause.
-            foreach (var entity in b.Model.GetEntityTypes().Where(e => e.ClrType.Namespace == "Domain" && e.ClrType != typeof(DeletedRecord)))
-                b.Entity(entity.ClrType).ToTable(t => t.UseSqlOutputClause(false));
             // A többszörös összetett kulcsok is a SQL Server indexméret-határa alatt maradnak.
             foreach (var property in b.Model.GetEntityTypes().SelectMany(e => e.GetProperties())
                 .Where(p => p.ClrType == typeof(string) && (p.Name == "Id" || p.Name.EndsWith("Id"))))
