@@ -68,12 +68,20 @@ export default function HomePage() {
     setPending(role);
     setError("");
     try {
-      await changeSession(cache, async () => (await axios.post<{ accessToken: string }>(
-        `${base}/dev-session/${role}`,
-      )).data.accessToken);
+      await changeSession(
+        cache,
+        async () =>
+          (
+            await axios.post<{ accessToken: string }>(
+              `${base}/dev-session/${role}`,
+            )
+          ).data.accessToken,
+      );
       await navigate("/activities");
     } catch (failure) {
-      const status = axios.isAxiosError(failure) ? failure.response?.status : undefined;
+      const status = axios.isAxiosError(failure)
+        ? failure.response?.status
+        : undefined;
       setError(
         status === 404
           ? "A demóbelépés csak helyi, fejlesztői módban futó API-val használható."
@@ -113,50 +121,6 @@ export default function HomePage() {
               Események megtekintése <ArrowOutwardRounded fontSize="small" />
             </Link>
           </div>
-          {import.meta.env.DEV && (
-            <section className="eu-demo" aria-labelledby="demo-heading">
-              <div className="eu-demo-heading">
-                <h2 id="demo-heading">Próbáld ki a saját nézőpontodból</h2>
-                <span>DEMÓ</span>
-              </div>
-              <div className="eu-role-grid">
-                {roles.map(({ id, name, detail, Icon, color }) => (
-                  <button
-                    key={id}
-                    className={`eu-role-card eu-role-${color}`}
-                    disabled={!!pending || !demo.data?.enabled}
-                    aria-label={`Demóbelépés: ${name}`}
-                    aria-busy={pending === id}
-                    onClick={() => void enter(id)}
-                  >
-                    <span className="eu-role-icon">
-                      <Icon />
-                    </span>
-                    <span className="eu-role-copy">
-                      <strong>{pending === id ? "Belépés…" : name}</strong>
-                      <small>{detail}</small>
-                    </span>
-                    <ArrowOutwardRounded
-                      className="eu-role-arrow"
-                      fontSize="small"
-                    />
-                  </button>
-                ))}
-              </div>
-              <p className="eu-demo-note" role="status">
-                {demo.isLoading
-                  ? "A demófiókok elérhetőségének ellenőrzése…"
-                  : demo.data?.enabled
-                    ? "Négy szerepkör. Saját tesztfiókok. Szabadon kipróbálható."
-                    : "A demóbelépés a helyi, fejlesztői alkalmazásban érhető el."}
-              </p>
-              {error && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {error}
-                </Alert>
-              )}
-            </section>
-          )}
         </div>
         <div className="eu-hero-art" aria-hidden="true">
           <div className="eu-orbit eu-orbit-outer" />
