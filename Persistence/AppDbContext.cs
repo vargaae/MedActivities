@@ -78,6 +78,15 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
         });
         if (sqlServer)
         {
+            // SQL Server does not allow OUTPUT without INTO on tables with enabled triggers.
+            // Keep the deletion archive active and use EF's trigger-compatible save commands.
+            Type[] triggeredEntities = [typeof(Patient), typeof(PractitionerProfile), typeof(Activity),
+                typeof(Appointment), typeof(PatientActivity), typeof(ActivityPractitioner),
+                typeof(PatientPractitionerAccess), typeof(PractitionerBookingSettings),
+                typeof(PractitionerWorkingHours), typeof(PatientNote), typeof(PatientDocument),
+                typeof(AdminProfile), typeof(AdmissionsOfficeProfile), typeof(ActivityComment), typeof(DeletedRecord)];
+            foreach (var entity in triggeredEntities)
+                b.Entity(entity).ToTable(table => table.UseSqlOutputClause(false));
             // A többszörös összetett kulcsok is a SQL Server indexméret-határa alatt maradnak.
             foreach (var property in b.Model.GetEntityTypes().SelectMany(e => e.GetProperties())
                 .Where(p => p.ClrType == typeof(string) && (p.Name == "Id" || p.Name.EndsWith("Id"))))

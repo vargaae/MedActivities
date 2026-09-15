@@ -20,6 +20,20 @@ internal static class Program
     {
         var root = Path.GetFullPath(args.FirstOrDefault() ?? Environment.CurrentDirectory);
         try {
+            if (args.Contains("--model-only"))
+            {
+                using var modelDb = new SqlServerDbContext(new DbContextOptionsBuilder<SqlServerDbContext>()
+                    .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=MedActivities_ModelOnly;Integrated Security=True").Options);
+                string[] triggerTables = ["Patients", "Practitioners", "Activities", "Appointments", "PatientActivities",
+                    "ActivityPractitioners", "PatientPractitionerAccesses", "PractitionerBookingSettings",
+                    "PractitionerWorkingHours", "PatientNotes", "PatientDocuments", "AdminProfiles",
+                    "AdmissionsOfficeProfiles", "ActivityComments", "DeletedRecords"];
+                foreach (var table in triggerTables)
+                    Check(!modelDb.Model.GetEntityTypes().Single(e => e.GetTableName() == table).IsSqlOutputClauseUsed(),
+                        table + " uses trigger-compatible SQL commands");
+                Console.WriteLine($"SUCCESS: {passed} model checks passed (no database connection).");
+                return 0;
+            }
             var practitionerOnly = args.Contains("--practitioner");
             VerifyApi(root, practitionerOnly).GetAwaiter().GetResult();
             if (!practitionerOnly) VerifyForms(root);

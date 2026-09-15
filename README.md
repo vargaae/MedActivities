@@ -305,7 +305,7 @@ Ez konzolos tesztprogram, nem `dotnet test` projekt. Külön `MedActivities_Test
 
 A legutóbbi ellenőrzések során az API-fordítás, a frontend TypeScript-ellenőrzése, az érintett fájlok lintellenőrzése és a dátumtesztek sikeresek voltak. SQL Serveren működött az önmagához rendelés, a hozzárendelt páciens eseménytörténetének lekérése és az orvosi foglalás.
 
-**Nyitott ellenőrzési pont:** az integrációs futás eseménytörlésnél, illetve kezelői hozzáférés visszavonásánál 500-as hibát jelzett. A teljes tesztcsomag sikeressége ezért nem állítható. A build a `SQLitePCLRaw.lib.e_sqlite3 2.1.11` csomagra NU1903 biztonsági figyelmeztetést is ad. Ezeket a végleges átadás előtt rendezni és újratesztelni kell.
+**Törlési javítás:** az SQL Serveres EF-modell minden triggeres tábláján letiltottuk a közvetlen OUTPUT használatát, a törlési archívum megtartásával. A `ConfigureTriggerCompatibleWrites` migráció csak modellkonfigurációt rögzít, üzleti táblát vagy adatot nem módosít. A fordítás és 15 adatmodell-regressziós ellenőrzés sikeres (`dotnet run --project IntegrationTests/IntegrationTests.csproj --no-build -- . --model-only`). A tényleges törlés és hozzáférés-visszavonás újratesztelése még szükséges: a legutóbbi futtatási kísérletet a LocalDB indítási hibája akadályozta. Telepítéskor futtasd a fenti migrációs parancsot és indítsd újra az API-t; a meglévő exportok visszaállítása után is ez a teendő. A build a `SQLitePCLRaw.lib.e_sqlite3 2.1.11` csomagra továbbra is NU1903 biztonsági figyelmeztetést ad.
 
 ## Hibaelhárítás
 
