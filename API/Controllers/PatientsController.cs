@@ -45,7 +45,16 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
         if(await db.Appointments.AnyAsync(a=>a.PatientId==id) || await db.PatientActivities.AnyAsync(a=>a.PatientId==id) ||
             await db.PatientNotes.AnyAsync(n=>n.PatientId==id) || await db.PatientDocuments.AnyAsync(d=>d.PatientId==id))
             return Conflict(new { message = "Eseményhez, foglaláshoz, dokumentumhoz vagy megjegyzéshez kapcsolt páciens nem törölhető." });
-        db.Patients.Remove(p); await db.SaveChangesAsync(); return NoContent();
+        // A hozzáférési kapcsolatok üzleti adatként archiválódnak, ezért a
+        // szülő törlése előtt explicit módon töröljük őket az FK-kaszkád helyett.
+        var accesses=await db.PatientPractitionerAccesses.Where(a=>a.PatientId==id).ToListAsync();
+        db.PatientPractitionerAccesses.RemoveRange(accesses);
+        db.Patients.Remove(p);
+        try { await db.SaveChangesAsync(); return NoContent(); }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message = "A páciens nem törölhető, mert még kapcsolódó adat hivatkozik rá. Frissítsd a listát és ellenőrizd a kapcsolatait." }); }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message = "A páciens törlése nem hajtható végre. Frissítsd a listát és ellenőrizd a kapcsolatait." }); }
     }
     [HttpPut("{id}/user"), Authorize(Roles="Admin")]
     public async Task<IActionResult> Link(string id, LinkInput input) {

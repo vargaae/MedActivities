@@ -20,6 +20,12 @@ public static class MedSetup
         catch(DbUpdateException e) when(e.InnerException is SqlException {Number:2601 or 2627 or 547}) {
             context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Egyediség vagy kapcsolat sérül: TAJ, felhasználó, dokumentum, napi foglalás vagy foglalt időpont."});
         }
+        catch(DbUpdateException e) when(e.GetBaseException() is SqlException) {
+            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Az adatbázis-kapcsolat miatt a törlés vagy mentés nem hajtható végre. Ellenőrizd a kapcsolódó adatokat, majd frissítsd a listát."});
+        }
+        catch(SqlException) {
+            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Az adatbázis-kapcsolat miatt a művelet nem hajtható végre. Próbáld újra frissítés után."});
+        }
         catch(Exception e) when(e is SqlException {Number:1205 or 1222} || e.InnerException is SqlException {Number:1205 or 1222}) {
             context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Párhuzamos adatbázis-művelet. Frissíts és próbáld újra."});
         }

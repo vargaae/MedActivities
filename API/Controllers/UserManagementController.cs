@@ -55,11 +55,24 @@ public class UserManagementController(UserManager<AppUser> users,AppDbContext db
         if(id==access.UserId || id.StartsWith(DemoSessionSetup.Prefix))return Conflict(new{message="A saját vagy demófelhasználó nem törölhető."});
         var u=await users.FindByIdAsync(id);if(u is null)return NotFound();
         if(await db.Patients.AnyAsync(p=>p.UserId==id)||await db.Practitioners.AnyAsync(p=>p.UserId==id))return Conflict(new{message="Előbb a kapcsolt páciens/kezelőprofilt kell kezelni. A fiók letiltható."});
+        if(await db.PatientNotes.AnyAsync(n=>n.AuthorUserId==id) || await db.PatientDocuments.AnyAsync(d=>d.UploadedByUserId==id))
+            return Conflict(new{message="A felhasználóhoz egészségügyi feljegyzés vagy dokumentum tartozik; a fiók törlés helyett letiltható."});
         if(await users.IsInRoleAsync(u,"Admin") && (await users.GetUsersInRoleAsync("Admin")).Count(x=>x.Id!=id && (!x.LockoutEnd.HasValue || x.LockoutEnd<=DateTimeOffset.UtcNow))==0)return Conflict(new{message="Az utolsó aktív admin nem törölhető."});
         await using var tx=await db.Database.BeginTransactionAsync();
         db.AdminProfiles.RemoveRange(await db.AdminProfiles.Where(p=>p.UserId==id).ToListAsync());
         db.AdmissionsOfficeProfiles.RemoveRange(await db.AdmissionsOfficeProfiles.Where(p=>p.UserId==id).ToListAsync());
-        await db.SaveChangesAsync();MedSetup.Check(await users.DeleteAsync(u));await tx.CommitAsync();return NoContent();
+        try
+        {
+            await db.SaveChangesAsync();
+            var result=await users.DeleteAsync(u);
+            if(!result.Succeeded)
+                return Conflict(new { message="A felhasználó nem törölhető: " + string.Join(" ",result.Errors.Select(HungarianError)) });
+            await tx.CommitAsync();return NoContent();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message="A felhasználó nem törölhető, mert még kapcsolódó adat hivatkozik rá. Használd a letiltást." }); }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message="A felhasználó törlése nem hajtható végre. Használd a letiltást, vagy kezeld előbb a kapcsolódó adatokat." }); }
     }
     IActionResult Errors(IdentityResult r)=>BadRequest(new{message=string.Join(" ",r.Errors.Select(HungarianError))});
     static string HungarianError(IdentityError error)=>error.Code switch {

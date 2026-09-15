@@ -36,7 +36,17 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     public async Task<IActionResult> Delete(string id) {
         var p=await db.Practitioners.FindAsync(id);if(p is null)return NotFound();
         if(await db.Appointments.AnyAsync(a=>a.PractitionerId==id)||await db.ActivityPractitioners.AnyAsync(a=>a.PractitionerId==id))return Conflict("Kapcsolt kezelőorvos nem törölhető.");
-        db.Remove(p);await db.SaveChangesAsync();return NoContent();
+        // A hozzáférések, foglalhatósági beállítások és munkaidők explicit
+        // törlése kiszámíthatóvá teszi a törlést az SQL Server triggerei mellett.
+        db.PatientPractitionerAccesses.RemoveRange(await db.PatientPractitionerAccesses.Where(a=>a.PractitionerId==id).ToListAsync());
+        db.PractitionerWorkingHours.RemoveRange(await db.PractitionerWorkingHours.Where(a=>a.PractitionerId==id).ToListAsync());
+        db.PractitionerBookingSettings.RemoveRange(await db.PractitionerBookingSettings.Where(s=>s.PractitionerId==id).ToListAsync());
+        db.Remove(p);
+        try { await db.SaveChangesAsync(); return NoContent(); }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException)
+        { return Conflict("A kezelőorvos nem törölhető, mert még kapcsolódó adat hivatkozik rá. Ellenőrizd az eseményeket és foglalásokat."); }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        { return Conflict("A kezelőorvos törlése nem hajtható végre. Frissítsd a listát és ellenőrizd a kapcsolatait."); }
     }
     [HttpGet("available-accounts"), Authorize(Roles="Admin")]
     public async Task<IActionResult> AvailableAccounts() {

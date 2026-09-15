@@ -47,7 +47,10 @@ internal static class Program
     {
         // Mindig új, egyértelműen teszt nevű adatbázis. Nem fogad el üzemi connection stringet.
         var dbName = "MedActivities_Test_" + Guid.NewGuid().ToString("N");
-        var connection = $"Server=(localdb)\\MSSQLLocalDB;Database={dbName};Integrated Security=True;Encrypt=True;TrustServerCertificate=True";
+        var connection = new SqlConnectionStringBuilder {
+            DataSource = Environment.GetEnvironmentVariable("MEDACTIVITIES_TEST_SQLSERVER") ?? @"(localdb)\MSSQLLocalDB",
+            InitialCatalog = dbName, IntegratedSecurity = true, Encrypt = true, TrustServerCertificate = true
+        }.ConnectionString;
         var options = new DbContextOptionsBuilder<SqlServerDbContext>().UseSqlServer(connection).Options;
         var secret = "Test!A9-" + Guid.NewGuid().ToString("N");
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -59,7 +62,8 @@ internal static class Program
             }
         };
         var start = process.StartInfo;
-        start.ArgumentList.Add(Path.Combine(root, "API", "bin", "Debug", "net10.0", "API.dll"));
+        start.ArgumentList.Add(Environment.GetEnvironmentVariable("MEDACTIVITIES_TEST_API_DLL")
+            ?? Path.Combine(root, "API", "bin", "Debug", "net10.0", "API.dll"));
         start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
         start.Environment["ASPNETCORE_URLS"] = $"http://127.0.0.1:{port}";
         start.Environment["Database__Provider"] = "SqlServer";
@@ -104,6 +108,8 @@ internal static class Program
             using var patient = await Login(anonymous.BaseAddress, "patient", secret);
             await Expect(admin, "POST", "user-management", new { userName = "office", email = "office@test.invalid", password = secret, name = "Felvételi teszt", role = "AdmissionsOffice" }, 201);
             using var office = await Login(anonymous.BaseAddress, "office", secret);
+            var removableOffice = (await Expect(admin, "POST", "user-management", new { userName = "removable-office", email = "removable-office@test.invalid", password = secret, name = "Törölhető iroda", role = "AdmissionsOffice" }, 201))!["id"]!.GetValue<string>();
+            await Expect(admin, "DELETE", "user-management/" + removableOffice, null, 204);
             var doctors = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray();
             var doctorId = doctors[0]!["id"]!.GetValue<string>();
             var doctorUserId = (await Expect(doctor, "GET", "session/me", null, 200))!["id"]!.GetValue<string>();
@@ -121,6 +127,7 @@ internal static class Program
             await Expect(doctor, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = DateOnly.FromDateTime(DateTime.Today.AddDays(3)), hour = 10 }, 403);
             await Expect(doctor, "PUT", $"patients/{p1}/access/{doctorId}", new {}, 204);
             await Expect(doctor, "PUT", $"patients/{p1}/access/{doctorId}", new {}, 204);
+            await Expect(admin, "PUT", $"patients/{p2}/access/{doctorId}", new {}, 204);
             Check((await Expect(doctor, "GET", "patients", null, 200))!.AsArray().Count == 1, "Self assignment is immediate and idempotent");
             await Expect(doctor, "GET", "patients/" + p1, null, 200);
             await Expect(admin, "PUT", $"practitioners/{doctorId}/booking-enabled", new { bookingEnabled = true }, 204);
@@ -134,6 +141,7 @@ internal static class Program
             Check((await Expect(doctor, "GET", $"activities?patientId={p2}", null, 200))!.AsArray().Count == 0, "Filter cannot broaden practitioner access");
             await Expect(anonymous, "POST", "session/register", new { userName = "otherdoctor", email = "otherdoctor@test.invalid", password = secret, name = "Másik Orvos", role = "Practitioner", tajNumber = "900000003", birthDate = "1980-01-01" }, 201);
             var otherDoctorId = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray().Single(p => p!["id"]!.GetValue<string>() != doctorId)!["id"]!.GetValue<string>();
+            await Expect(admin, "PUT", $"patients/{p2}/access/{otherDoctorId}", new {}, 204);
             object HistoryInput(string? id) => new { id, title = "Másik orvos eseménye", date = day.ToDateTime(new TimeOnly(9, 0)), description = "Előzmény", category = "Vizsgálat", city = "Budapest", venue = "Rendelő", patientId = p1, practitionerIds = new[] { otherDoctorId } };
             var historyId = (await Expect(admin, "POST", "activities", HistoryInput(null), 201))!.GetValue<string>();
             Check(!(await Expect(doctor, "GET", "activities/" + historyId, null, 200))!["canEditFields"]!.GetValue<bool>(), "Assigned patient's other-doctor event is read only");
@@ -212,6 +220,10 @@ internal static class Program
             using var reloggedPatient = await Login(anonymous.BaseAddress, "patient", secret);
             await Expect(reloggedPatient, "GET", "session/me", null, 200);
             await VerifyDemo(process, anonymous, db);
+        }
+        catch {
+            lock (logs) Console.Error.WriteLine(logs.ToString());
+            throw;
         }
         finally {
             if (process.Id != 0 && !process.HasExited) { process.Kill(true); await process.WaitForExitAsync(); }
