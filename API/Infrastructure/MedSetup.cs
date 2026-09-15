@@ -14,8 +14,6 @@ public static class MedSetup
         services.AddAuthorization();return services;
     }
     public static IApplicationBuilder UseMedActivitiesGuard(this IApplicationBuilder app)=>app.Use(async(context,next)=>{
-        // A régi, feltöltött Activity handlerek minden adatot visszaadnak és szabadon írnak.
-        // Az MVP-ben lezárjuk ezt az útvonalat, a React listája /api/med-activities-t használ.
 
         try {await next();}
         catch(BookingException e){context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message=e.Message});}
@@ -39,7 +37,6 @@ public static class MedSetup
         var email=configuration["BootstrapAdmin:Email"];var password=configuration["BootstrapAdmin:Password"];
         if(string.IsNullOrWhiteSpace(email)||string.IsNullOrWhiteSpace(password))return;
         var users=scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        // Csak új accountot hoz létre; nyilvánosan regisztrált meglévő accountot nem emel adminná.
         var user=await users.FindByEmailAsync(email);
         if(user is not null)return;
         var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();

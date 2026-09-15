@@ -120,8 +120,6 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
                 return BadRequest(new {message="Legalább egy létező kezelőorvost válassz."});
             if(appointment is not null)
             {
-                // Az eddigi főkezelő megmarad, ha továbbra is szerepel a kiválasztottak között.
-                // Ha eltávolítják, a kérés első kezelője veszi át a foglalást.
                 var primary=ids.Contains(appointment.PractitionerId)
                     ? appointment.PractitionerId : input.PractitionerIds![0];
                 appointment.PatientId=input.PatientId;
@@ -136,7 +134,6 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         }
         else
         {
-            // A tiltást nem lehet módosított HTTP-kéréssel megkerülni.
             if(input.PatientId is not null && !activity.PatientActivities.Select(p=>p.PatientId).ToHashSet().SetEquals([input.PatientId]))return Forbid();
             if(input.PractitionerIds is not null && !activity.ActivityPractitioners.Select(p=>p.PractitionerId).ToHashSet().SetEquals(input.PractitionerIds))return Forbid();
         }

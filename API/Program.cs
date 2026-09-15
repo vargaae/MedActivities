@@ -9,7 +9,6 @@ var demoStatus = args.Contains("--demo-data-status");
 var demoAdmin = args.Contains("--configure-demo-admin");
 var builder = WebApplication.CreateBuilder(args.Where(a => a is not "--seed-demo-data" and not "--demo-data-status" and not "--configure-demo-admin").ToArray());
 
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddSignalR(options => options.MaximumReceiveMessageSize = 16 * 1024);
 builder.Services.AddMedActivities();
@@ -42,7 +41,6 @@ builder.Services.AddMediatR(x => x.RegisterServicesFromAssemblyContaining<GetAct
 
 var app = builder.Build();
 
-// Explicit CLI workflow: no listening port needed and no implicit production seeding.
 if (seedDemo || demoStatus || demoAdmin)
 {
     using var demoScope = app.Services.CreateScope();
@@ -71,8 +69,7 @@ app.UseStaticFiles();
 app.UseCors("CorsPolicy");
 
 app.UseMedActivitiesGuard();
-// Browser WebSocket/SSE transports pass bearer tokens in the query string.
-// Accept it only on the chat route; ASP.NET request logging is Warning (no token URLs).
+
 app.Use(async (context, next) => {
     if (context.Request.Path.StartsWithSegments("/api/chat") && !context.Request.Headers.ContainsKey("Authorization") &&
         context.Request.Query.TryGetValue("access_token", out var chatToken))

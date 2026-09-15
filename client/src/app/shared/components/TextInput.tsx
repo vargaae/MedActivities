@@ -1,25 +1,30 @@
 import { TextField, type TextFieldProps } from "@mui/material";
-import { type FieldValues, useController, type UseControllerProps } from "react-hook-form";
+import {
+  type FieldValues,
+  useController,
+  type UseControllerProps,
+} from "react-hook-form";
 
 type Props<T extends FieldValues> = {
-    label: string;
-    currency?: boolean;
-} & UseControllerProps<T> & TextFieldProps;
+  label: string;
+  currency?: boolean;
+} & UseControllerProps<T> &
+  TextFieldProps;
 
 export default function TextInput<T extends FieldValues>(props: Props<T>) {
-    const { fieldState, field } = useController({ ...props });
+  const { fieldState, field } = useController({ ...props });
 
-    return (
-        <TextField
-            {...props}
-            {...field}
-            id={String(props.name)}
-            name={String(props.name)}
-            value={field.value || ''}
-            fullWidth
-            variant="outlined"
-            error={!!fieldState.error}
-            helperText={fieldState.error?.message}
-        />
-    );
+  return (
+    <TextField
+      {...props}
+      {...field}
+      id={String(props.name)}
+      name={String(props.name)}
+      value={field.value || ""}
+      fullWidth
+      variant="outlined"
+      error={!!fieldState.error}
+      helperText={fieldState.error?.message}
+    />
+  );
 }

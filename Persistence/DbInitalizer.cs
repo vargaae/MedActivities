@@ -4,8 +4,6 @@ using Persistence.Identity;
 
 namespace Persistence;
 
-// Fiktív vizsgaadatok. Az összes kapcsolat nélküli eseményt a demópácienshez
-// és demókezelőhöz kapcsolja. Valós betegadatbázison ne futtasd.
 public class DbInitalizer
 {
     public static async Task SeedData(AppDbContext context)

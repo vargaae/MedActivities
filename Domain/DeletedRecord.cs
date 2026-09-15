@@ -1,6 +1,5 @@
 namespace Domain;
 
-// SQL Server DELETE triggers create immutable snapshots in the deleting transaction.
 public class DeletedRecord
 {
     public long Id { get; set; }

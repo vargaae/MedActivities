@@ -1,0 +1,184 @@
+EgészségÚt / MedActivities - egyszerűsített telepítési útmutató a vizsgaremekhez local
+============================================================================
+
+Projekt:
+EgészségÚt / MedActivities - egészségügyi eseménykezelő és pácienskezelő rendszer
+
+
+1. Szükséges programok
+----------------------
+
+A telepítéshez Windows környezet javasolt.
+
+Szükséges:
+- Git
+- .NET 10 SDK
+- Node.js 22 vagy újabb, npm-mel
+- SQL Server Express LocalDB vagy SQL Server Express
+- sqlcmd parancssori eszköz
+- PowerShell 7
+- Visual Studio 2026 vagy Visual Studio Code
+
+Ellenőrző parancsok:
+
+git --version
+dotnet --version
+node --version
+npm --version
+sqlcmd -?
+
+
+2. Adatbázis visszaállítása SQL dumpból
+---------------------------------------
+
+Az adatbázis-export a projektben található:
+
+database/exports/20260915/MedActivities.sql
+
+Indítsd el a LocalDB példányt:
+
+SqlLocalDB start MSSQLLocalDB
+
+Hozz létre egy üres MedActivities adatbázist:
+
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -d master -Q "IF DB_ID(N'MedActivities') IS NULL CREATE DATABASE [MedActivities];"
+
+Importáld a dumpot:
+
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -f 65001 -d MedActivities -i "database/exports/20260915/MedActivities.sql"
+
+Fontos:
+- A dump csak üres adatbázisba importálható.
+- Ha a MedActivities adatbázis már létezik és vannak benne táblák, az import megáll.
+- Ha meg kell tartani a korábbi adatbázist, előbb készíts mentést, vagy használj másik adatbázisnevet.
+
+Gyors ellenőrzés:
+
+pwsh -File database/Verify-Export.ps1
+
+Sikeres import esetén az ellenőrzés többek között ezeket az értékeket adja:
+
+Patients: 22
+Practitioners: 17
+Activities: 1004
+Users: 172
+
+
+3. Demó admin jelszó beállítása
+-------------------------------
+
+Az asztali alkalmazáshoz és az admin felülethez állíts be helyi demó admin jelszót:
+
+pwsh -File scripts/Configure-DemoAdmin.ps1
+
+A script bekéri a jelszót.
+
+Belépési e-mail:
+admin@example.undefined
+
+Jelszó:
+az előbb megadott jelszó
+
+
+4. Backend API indítása
+-----------------------
+
+A projekt gyökerében állítsd be a SQL Server kapcsolatot:
+
+$env:Database__Provider = "SqlServer"
+$env:ConnectionStrings__SqlServerConnection = "Server=(localdb)\MSSQLLocalDB;Database=MedActivities;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+$env:Database__ApplyMigrations = "false"
+$env:Database__SeedDemoData = "false"
+
+Fordítás:
+
+dotnet restore MedActivities.slnx
+dotnet build MedActivities.slnx
+
+API indítása:
+
+dotnet run --project API/API.csproj --launch-profile https
+
+Az API címe:
+
+https://localhost:5001
+
+Health check másik terminálból:
+
+Invoke-RestMethod https://localhost:5001/api/health
+
+Elvárt válasz:
+
+status: ok
+database: SqlServer
+
+
+5. Webalkalmazás indítása
+-------------------------
+
+Nyiss egy második PowerShell terminált:
+
+cd MedAcitivities\client
+npm ci
+npm run dev
+
+A webalkalmazás címe:
+
+https://localhost:3000
+
+A kezdőlapon használható:
+- normál bejelentkezés
+- helyi demó szerepkörválasztás, ha az API Development módban fut
+
+
+6. Windows Forms asztali alkalmazás indítása
+--------------------------------------------
+
+Nyiss egy harmadik PowerShell terminált a projekt gyökerében:
+
+$env:MEDACTIVITIES_API_URL = "https://localhost:5001/api"
+dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
+
+Belépés:
+
+admin@example.undefined
+
+Jelszó:
+a Configure-DemoAdmin.ps1 futtatásakor megadott jelszó
+
+Fontos:
+Az asztali alkalmazás nem közvetlenül az adatbázishoz kapcsolódik, hanem a futó ASP.NET Core API-t használja.
+Ezért az API-nak és az adatbázisnak futnia kell a Windows Forms kliens használata közben.
+
+
+
+
+7. Rövid indítási sorrend
+-------------------------
+
+1. SqlLocalDB start MSSQLLocalDB
+2. Adatbázis import: MedActivities.sql
+3. pwsh -File scripts/Configure-DemoAdmin.ps1
+4. dotnet run --project API/API.csproj --launch-profile https
+5. client mappában: npm ci, majd npm run dev
+6. desktop indítása: dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
+
+
+8. Beadáshoz fontos fájlok
+---------------------------
+
+Az adatbázis-exportok helye:
+
+database/exports/20260915/
+
+Fontos fájlok:
+- MedActivities.sql
+- MedActivities.bak
+- MedActivities.mdf
+- MedActivities_log.ldf
+- schema.sql
+
+Ajánlott tanári telepítéshez:
+MedActivities.sql
+
+A BAK visszaállítás csak azonos vagy újabb SQL Server verzióval működik.

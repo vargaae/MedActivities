@@ -172,12 +172,50 @@ export default function PractitionersPage() {
         Kezelőorvosok – orvosok és egészségügyi szakdolgozók
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-        <Autocomplete options={list.data ?? []} inputValue={nameSearch} onInputChange={(_, value) => setNameSearch(value)} getOptionLabel={d => d.name}
-          filterOptions={(options, state) => options.filter(d => d.name.toLocaleLowerCase('hu').includes(state.inputValue.toLocaleLowerCase('hu')))}
-          renderInput={params => <TextField {...params} inputRef={searchInput} id="practitioner-name-search" name="practitionerNameSearch" label="Keresés név alapján" />} />
-        <Autocomplete options={[...new Set((list.data ?? []).map(d => d.specialty))].sort((a, b) => a.localeCompare(b, 'hu'))} inputValue={specialtySearch} onInputChange={(_, value) => setSpecialtySearch(value)}
-          renderInput={params => <TextField {...params} id="practitioner-specialty-search" name="practitionerSpecialtySearch" label="Keresés szakterület alapján" />} />
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <Autocomplete
+          options={list.data ?? []}
+          inputValue={nameSearch}
+          onInputChange={(_, value) => setNameSearch(value)}
+          getOptionLabel={(d) => d.name}
+          filterOptions={(options, state) =>
+            options.filter((d) =>
+              d.name
+                .toLocaleLowerCase("hu")
+                .includes(state.inputValue.toLocaleLowerCase("hu")),
+            )
+          }
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              inputRef={searchInput}
+              id="practitioner-name-search"
+              name="practitionerNameSearch"
+              label="Keresés név alapján"
+            />
+          )}
+        />
+        <Autocomplete
+          options={[...new Set((list.data ?? []).map((d) => d.specialty))].sort(
+            (a, b) => a.localeCompare(b, "hu"),
+          )}
+          inputValue={specialtySearch}
+          onInputChange={(_, value) => setSpecialtySearch(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              id="practitioner-specialty-search"
+              name="practitionerSpecialtySearch"
+              label="Keresés szakterület alapján"
+            />
+          )}
+        />
       </Box>
       {admin && (
         <Button
@@ -201,8 +239,14 @@ export default function PractitionersPage() {
         <Alert severity="error">A kezelők nem tölthetők be.</Alert>
       )}
       {list.data
-        ?.filter((d) =>
-          d.name.toLocaleLowerCase('hu').includes(nameSearch.toLocaleLowerCase('hu')) && d.specialty.toLocaleLowerCase('hu').includes(specialtySearch.toLocaleLowerCase('hu')),
+        ?.filter(
+          (d) =>
+            d.name
+              .toLocaleLowerCase("hu")
+              .includes(nameSearch.toLocaleLowerCase("hu")) &&
+            d.specialty
+              .toLocaleLowerCase("hu")
+              .includes(specialtySearch.toLocaleLowerCase("hu")),
         )
         .map((d) => (
           <Paper key={d.id} sx={{ p: 2 }}>

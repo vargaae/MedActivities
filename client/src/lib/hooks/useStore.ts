@@ -1,6 +1,6 @@
-import {useContext} from "react";
-import {StoreContext} from "../stores/store.ts";
+import { useContext } from "react";
+import { StoreContext } from "../stores/store.ts";
 
 export function useStore() {
-    return useContext(StoreContext);
+  return useContext(StoreContext);
 }

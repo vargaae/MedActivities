@@ -14,8 +14,6 @@ public class GetActivityPage
     {
         public async Task<Result> Handle(Query request, CancellationToken ct)
         {
-            // DTO projection eagerly loads both person collections in bounded queries;
-            // no lazy loading or per-card database access. SplitQuery avoids a cross product.
             var rows = await ActivityVisibility.For(context, request.UserId, request.Roles)
                 .AsNoTracking().AsSplitQuery()
                 .Where(a => request.PatientId == null || a.PatientActivities.Any(p => p.PatientId == request.PatientId))
