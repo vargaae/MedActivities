@@ -114,7 +114,14 @@ secrets.json
 *.backup
 *.sql
 !database/*.sql
-database/exports/
+database/exports/*
+!database/exports/20260915/
+database/exports/20260915/*
+!database/exports/20260915/MedActivities.bak
+!database/exports/20260915/MedActivities.sql
+!database/exports/20260915/MedActivities.mdf
+!database/exports/20260915/MedActivities_log.ldf
+!database/exports/20260915/schema.sql
 
 ############################
 

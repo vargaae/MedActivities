@@ -1,163 +1,165 @@
 # MedActivities – EgészségÚt
 
-Egészségügyi páciens-, esemény- és időpontkezelő vizsgaremek, magyar nyelvű webes felülettel és Windows Forms pácienskezelő alkalmazással. A két kliens közös ASP.NET Core API-n keresztül használja az SQL Server adatbázist, így ugyanazokkal az adatokkal és szerveroldali jogosultságokkal dolgoznak.
+Egészségügyi páciens-, esemény- és időpontkezelő vizsgaremek, magyar nyelvű React webalkalmazással és Windows Forms pácienskezelővel. A két alkalmazás közös ASP.NET Core API-n keresztül dolgozik ugyanazon Microsoft SQL Server adatbázison.
 
-Az alapértelmezett adatbázis **Microsoft SQL Server**. A SQLite külön fejlesztési profilként maradt meg; az aktív Windows Forms kliens SQL Serverhez kapcsolódó API-t igényel.
+## Gyorsindítás klónozás után – Windows, PowerShell
 
-## Tartalom
+### 1. Szükséges programok és a repo letöltése
 
-- [Funkciók és jogosultságok](#funkciók-és-jogosultságok)
-- [Technológiák és projektstruktúra](#technológiák-és-projektstruktúra)
-- [Előfeltételek](#előfeltételek)
-- [Első indítás SQL Serverrel](#első-indítás-sql-serverrel)
-- [Windows Forms és Visual Studio Designer](#windows-forms-és-visual-studio-designer)
-- [Demóadatok és belépés](#demóadatok-és-belépés)
-- [Konfiguráció és adatbázis](#konfiguráció-és-adatbázis)
-- [Fordítás és ellenőrzés](#fordítás-és-ellenőrzés)
-- [Kiadás](#kiadás)
-- [Hibaelhárítás](#hibaelhárítás)
-- [Ismert korlátozások](#ismert-korlátozások)
+Telepítsd:
 
-## Funkciók és jogosultságok
+- Git;
+- .NET 10 SDK;
+- Node.js 22 LTS, legalább 22.12-es verzió, npm-mel;
+- SQL Server Express LocalDB; mentés visszaállításához a mentést készítő SQL Serverrel azonos vagy újabb főverzió szükséges;
+- Microsoft `sqlcmd` parancssori eszköz;
+- PowerShell 7 (`pwsh`);
+- Visual Studio 2026 és a **.NET asztali fejlesztés** munkaterhelés, ha a Windows Forms Designert is használni szeretnéd.
 
-- **Pácienskezelés:** listázás, keresés, adatlap, létrehozás, módosítás és törlés; páciens–felhasználó összekapcsolás és kezelői hozzáférések kiosztása.
-- **TAJ-kezelés:** szöveges tárolás, pontosan 9 ASCII számjegy, kezdő nullák megőrzése és duplikációellenőrzés a páciens-, illetve kezelőprofilok között, külön-külön. A rendszer formai és egyediségi ellenőrzést végez, nem hatósági TAJ-ellenőrzést.
-- **Kezelők:** profilok, szakterület, helyszín, heti munkaidő és foglalhatóság kezelése; egy felhasználói fiókhoz nem hozható létre több kezelőprofil.
-- **Események:** létrehozás, listázás, részletek, szerkesztés, törlés, páciens- és kezelőhozzárendelés, valamint páciens és kezelő szerinti szűrés.
-- **Időpontok:** szabad időpontok lekérdezése, foglalás, átfoglalás, lemondás, státuszváltás és törlés. A rendszer ellenőrzi a munkaidőt, az ütközéseket és a páciens napi foglalását.
-- **Egészségügyi feljegyzések:** páciensenkénti megjegyzések létrehozása, olvasása, módosítása és törlése; dokumentumok feltöltése, letöltése, címének módosítása és törlése.
-- **Eseménychat:** SignalR-alapú, adatbázisban tárolt üzenetek a weben, MediatR-alapú üzenetkezeléssel és eseményhez kötött hozzáféréssel.
-- **Felhasználókezelés:** Identity-alapú regisztráció és tokenes bejelentkezés, adminisztráció, szerepkörök és kijelentkezéskor szerveroldali munkamenet-érvénytelenítés.
-- **Törlési archívum:** SQL Server-triggerek tárolják a támogatott üzleti táblákból törölt rekordok állapotát, a törlés idejét és végrehajtóját.
-
-| Szerepkör                            | Fő jogosultságok                                                                                                                                    |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Admin`                              | Teljes üzleti adatkezelés; felhasználók, szerepkörök, kezelőprofilok, munkaidő és foglalhatóság adminisztrációja.                                   |
-| `AdmissionsOffice` – felvételi iroda | Páciensek, kezelői hozzáférések, események és időpontok kezelése; páciensdokumentumok és megjegyzések kezelése.                                     |
-| `Practitioner` – kezelő              | Hozzárendelt páciensek és események elérése, engedélyezett eseménymódosítások, saját foglalások státuszkezelése; hozzáférhető feljegyzések és chat. |
-| `Patient` – páciens                  | Saját adatlap, elérhetőségek, események, feljegyzések és chat; saját időpont foglalása, átfoglalása és lemondása a weben.                           |
-
-A részletes jogosultságokat az API minden kérésnél ellenőrzi. Megjegyzést és dokumentumot a szerző/feltöltő vagy az admin/felvételi iroda módosíthat, ha a pácienshez is van hozzáférése. Kapcsolt páciens vagy kezelő törlését az API elutasíthatja; a felület ilyenkor jelzi a fennálló kapcsolatot.
-
-## Technológiák és projektstruktúra
-
-| Réteg                    | Technológia                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------- |
-| Web                      | React 19, TypeScript 5.9, Vite 7, Material UI, React Router, TanStack Query, Axios     |
-| API és alkalmazási réteg | C#, .NET 10, ASP.NET Core, ASP.NET Core Identity, MediatR, SignalR                     |
-| Adatelérés               | Entity Framework Core 10, SQL Server; külön SQLite fejlesztési profil                  |
-| Asztali kliens           | .NET 10 Windows Forms, külön `.Designer.cs` és `.resx` fájlok                          |
-| Ellenőrzés               | Saját SQL Server/API/WinForms integrációs tesztprogram, TypeScript, ESLint, Vite build |
-
-```text
-React web ─────────┐
-                  ├── ASP.NET Core API ── Application / Persistence / Domain ── SQL Server
-Windows Forms ────┘
-```
-
-A desktop kliensben nincs közvetlen SQL-kapcsolat: HTTP-n hívja az API-t, és nem kap adatbázis-jelszót.
-
-```text
-API/                              API-indítás, kontrollerek, hitelesítés, SignalR
-Application/                      Alkalmazási műveletek és MediatR-kezelők
-Domain/                           Üzleti entitások
-Persistence/                      EF Core modellek és adatbázis-konfiguráció
-  Migrations/                     SQLite-migrációk
-  Migrations/SqlServer/            SQL Server-migrációk
-client/                           Aktív React webes alkalmazás
-Desktop_Pacienskezelo/             Aktív Windows Forms megoldás és projekt
-IntegrationTests/                 SQL Server/API/WinForms integrációs tesztprogram
-scripts/                          API-indítás, migráció és demóadmin segédszkriptek
-docs/                             Kiegészítő dokumentáció
-archive/web-tutorial/              Megőrzött, az aktív frontendből kivont példakód
-```
-
-## Előfeltételek
-
-- Windows az SQL Server LocalDB, a WinForms és az integrációs tesztprogram futtatásához.
-- .NET 10 SDK.
-- Visual Studio 2026, a **.NET desktop development / .NET asztali fejlesztés** munkaterheléssel, a Designer használatához.
-- Node.js és npm. A repo Vite-verziójának Node-követelménye: `^20.19.0 || >=22.12.0`.
-- SQL Server, SQL Server Express vagy SQL Server Express LocalDB. A helyi példák a `(localdb)\MSSQLLocalDB` példányt használják.
-- PowerShell 7 a `pwsh` parancsokhoz; internetkapcsolat az első NuGet- és npm-csomagletöltéshez.
-
-## Első indítás SQL Serverrel
-
-Az alábbi parancsokat **PowerShellben, a repo gyökeréből** futtasd, kivéve ahol külön `client` munkakönyvtár szerepel. A repo helyi mappájának neve lehet `MedAcitivities`; a parancsok nem igényelnek konkrét meghajtót vagy felhasználónevet.
-
-Csak a kódblokkok tartalmát másold be, a terminál `PS C:\...>` előtagját ne. A környezeti változók nevében két aláhúzás van: `__`, fordított perjel nélkül. A PowerShell `$env:...` szintaxisa Git Bashben nem működik.
-
-### 1. Előkészítés és API-fordítás
-
-Előbb állítsd le a korábban elindított API-t `Ctrl+C`-vel, illetve Visual Studio esetén a **Stop Debugging** paranccsal. Windows alatt a futó API zárolhatja a fordításkor cserélendő DLL-eket.
-
-Telepített LocalDB esetén:
+Az alábbi parancsok **PowerShell-parancsok**, nem Git Bash-parancsok. Csak a kódblokkok tartalmát másold be, a terminál `PS C:\...>` előtagját ne. A környezeti változókban két aláhúzás szerepel: `__`.
 
 ```powershell
+git clone https://github.com/vargaae/MedAcitivities.git
+cd MedAcitivities
+
+dotnet --version
+node --version
+sqlcmd -?
 SqlLocalDB start MSSQLLocalDB
 dotnet dev-certs https --trust
 dotnet tool restore
+dotnet restore MedActivities.slnx
+```
 
+Ha a LocalDB-példány még nem létezik, egyszer futtasd a `SqlLocalDB create MSSQLLocalDB` parancsot, majd indítsd el.
+
+### 2. A repóhoz mellékelt végleges adatbázis-export
+
+Az aktuális adatbázis 2026. szeptember 15-i exportjai a `database/exports/20260915/` mappában találhatók. A Git figyelmen kívül hagyási szabályai ezeket a konkrét fájlokat engedélyezik. **Klónozáskor csak a már commitolt és feltöltött fájlok érkeznek meg**; a helyi export elkészítése önmagában nem jelent GitHub-feltöltést.
+
+| Fájl | Tartalom |
+| --- | --- |
+| `MedActivities.bak` | Teljes, COPY_ONLY és CHECKSUM mentés; ez az ajánlott visszaállítási forrás. |
+| `MedActivities.sql` | UTF-8 SQL-dump sémával, migrációtörténettel és adatokkal, üres céladatbázishoz. |
+| `MedActivities.mdf` | A mentésből visszaállított és leválasztott másolat adatfájlja. |
+| `MedActivities_log.ldf` | Az MDF-hez tartozó naplófájl; az MDF-fel együtt kezelendő. |
+| `schema.sql` | SQL Server-séma; külön önmagában nem tartalmaz üzleti adatokat. |
+
+A pillanatképben **22 páciens, 17 kezelőorvos, 1004 esemény, 6 foglalás és 172 felhasználó** található, a kapcsolatokkal, megjegyzésekkel, dokumentumokkal és archívummal együtt. Az export nem cserélte le és nem generálta újra az adatokat.
+
+Forrás SQL Server-verzió: **17.0.4025.3** (17-es főverzió). BAK-visszaállításhoz és MDF/LDF csatoláshoz ezzel kompatibilis, azonos vagy újabb SQL Server szükséges. Régebbi szerverhez a SQL-dump kompatibilitását külön ellenőrizni kell.
+
+Ellenőrzés: a BAK `RESTORE VERIFYONLY WITH CHECKSUM` ellenőrzése és külön másolatba visszaállítása sikeres; az SQL-dump külön üres LocalDB-adatbázisba importálva, `DBCC CHECKDB` ellenőrzéssel és a fő rekorddarabszámok egyeztetésével sikeres. Az eredeti adatbázist nem módosítottuk.
+
+**Adatvédelem:** a teljes mentések felhasználói jelszóhasheket, dokumentumokat és törlési archívumot is tartalmaznak. Nyilvános feltöltés előtt ellenőrizd az összes adatot és a fiókokat; valós betegadatot vagy újrahasznált hitelesítési adatot ne publikálj. Az export nem anonimizálás.
+
+A korábbi `before-profile-replacement.bak` megmaradt helyi biztonsági mentésként, de nincs engedélyezve a Gitben, és az alábbi telepítés nem azt használja.
+
+### 3. Teljes BAK-mentés visszaállítása
+
+Az API még ne fusson. A repo gyökerében, **PowerShell 7-ben** futtasd az alábbi blokkot. A kód a mentésből olvassa ki a logikai fájlneveket, ezért nem igényli a készítő számítógépének elérési útjait.
+
+A visszaállítás csak új `MedActivities` adatbázisra engedélyezett. Meglévő adatbázist és adatfájlt nem ír felül.
+
+```powershell
+$ErrorActionPreference = "Stop"
+$backupPath = (Resolve-Path "database/exports/20260915/MedActivities.bak").Path
+$dataDirectory = Join-Path $env:LOCALAPPDATA "MedActivities/SqlData"
+New-Item -ItemType Directory -Force -Path $dataDirectory | Out-Null
+$masterConnection = [System.Data.SqlClient.SqlConnection]::new(
+    "Server=(localdb)\MSSQLLocalDB;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+)
+function SqlLiteral([string]$value) { return "N'" + $value.Replace("'", "''") + "'" }
+$masterConnection.Open()
+try {
+    $command = $masterConnection.CreateCommand()
+    $command.CommandTimeout = 180
+    $command.CommandText = "SELECT DB_ID(N'MedActivities')"
+    if ($command.ExecuteScalar() -isnot [DBNull]) {
+        throw "A MedActivities adatbázis már létezik. A visszaállítás nem írja felül."
+    }
+    $command.CommandText = "RESTORE VERIFYONLY FROM DISK=$(SqlLiteral $backupPath) WITH CHECKSUM"
+    [void]$command.ExecuteNonQuery()
+    $command.CommandText = "RESTORE FILELISTONLY FROM DISK=$(SqlLiteral $backupPath)"
+    $adapter = [System.Data.SqlClient.SqlDataAdapter]::new($command)
+    $fileList = [System.Data.DataTable]::new()
+    try { [void]$adapter.Fill($fileList) } finally { $adapter.Dispose() }
+    $moves = @()
+    $index = 0
+    foreach ($file in $fileList.Rows) {
+        $index++
+        $extension = if ($file.Type -eq "L") { "ldf" } else { "mdf" }
+        $targetPath = Join-Path $dataDirectory "MedActivities_$index.$extension"
+        if (Test-Path -LiteralPath $targetPath) { throw "Már létező adatfájl: $targetPath" }
+        $moves += "MOVE $(SqlLiteral $file.LogicalName) TO $(SqlLiteral $targetPath)"
+    }
+    $command.CommandText = "RESTORE DATABASE [MedActivities] FROM DISK=$(SqlLiteral $backupPath) WITH " + ($moves -join ", ") + ", RECOVERY"
+    [void]$command.ExecuteNonQuery()
+    Write-Host "Az adatbázis visszaállítása sikeres."
+} finally {
+    $masterConnection.Dispose()
+}
+```
+
+Ez a példa helyi LocalDB-re készült. Külön SQL Server-szolgáltatás esetén a mentés és a célmappa a szerver számára is elérhető legyen, megfelelő fájljogosultságokkal.
+
+**Ha teljes SQL-dumpot kaptál BAK helyett:** a fenti visszaállítást hagyd ki, és kizárólag üres céladatbázison futtasd:
+
+```powershell
+if (!(Test-Path "database/exports/20260915/MedActivities.sql")) { throw "Hiányzik a teljes SQL-dump." }
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -d master -Q "IF DB_ID(N'MedActivities') IS NOT NULL THROW 51000, 'A celadatbazis mar letezik.', 1; CREATE DATABASE [MedActivities];"
+if ($LASTEXITCODE -ne 0) { throw "Az üres céladatbázis létrehozása sikertelen." }
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -f 65001 -d MedActivities -i "database/exports/20260915/MedActivities.sql"
+if ($LASTEXITCODE -ne 0) { throw "Az adatimport sikertelen; ne folytasd az API indításával." }
+```
+
+A `schema.sql` nem helyettesíti a teljes dumpot. A BAK és SQL-dump két alternatíva: **nem kell mindkettőt importálni**. MDF/LDF átadásakor mindkét leválasztott adatfájl szükséges; a hordozható telepítéshez a BAK-visszaállítás ajánlott. Futó adatbázis MDF-jét ne másold és ne csatold újra.
+
+### 4. API fordítása, migráció és indítás
+
+A sikeres adat-visszaállítás után, ugyanebben a terminálban:
+
+```powershell
 $env:Database__Provider = "SqlServer"
 $env:ConnectionStrings__SqlServerConnection = "Server=(localdb)\MSSQLLocalDB;Database=MedActivities;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+$env:Database__ApplyMigrations = "false"
+$env:Database__SeedDemoData = "false"
 
 dotnet build API/API.csproj
-```
-
-Más SQL Server-példánynál a LocalDB-indítást hagyd ki, és a saját connection stringedet add meg. A `dotnet build` a NuGet-csomagokat is helyreállítja. Csak sikeres fordítás után folytasd.
-
-### 2. Adatbázisséma létrehozása vagy frissítése
-
-Ugyanabban a terminálban:
-
-```powershell
+if ($LASTEXITCODE -ne 0) { throw "Az API fordítása sikertelen." }
 dotnet ef database update --no-build --context SqlServerDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
+if ($LASTEXITCODE -ne 0) { throw "A migráció sikertelen." }
+
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -d MedActivities -Q "SELECT 'Patients' AS Tabla, COUNT(*) AS Darab FROM Patients UNION ALL SELECT 'Practitioners', COUNT(*) FROM Practitioners UNION ALL SELECT 'Activities', COUNT(*) FROM Activities; SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId;"
 ```
 
-A parancs a konfigurált `MedActivities` adatbázis migrációit alkalmazza. A `No migrations were applied. The database is already up to date.` üzenet sikeres, naprakész állapotot jelent. A `--no-build` itt az előző lépésben elkészült fordítást használja; forrásmódosítás után előbb ismét fordíts.
+A migráció a sémát frissíti, **nem tölti vissza a bemutatóadatokat**. Az ellenőrző lekérdezésben az export visszaállítása után 22 páciens, 17 kezelőorvos és 1004 esemény várható, amíg nem történik újabb adatmódosítás.
 
-Az API alapbeállítás szerint nem futtat automatikus migrációt és demófeltöltést induláskor.
-
-### 3. Demóadatok és jelszavas demóadmin
-
-A bemutatóadatok feltöltése és darabszámaik lekérdezése:
-
-```powershell
-dotnet run --project API/API.csproj --no-build --launch-profile https -- --seed-demo-data
-dotnet run --project API/API.csproj --no-build --launch-profile https -- --demo-data-status
-```
-
-A Windows Forms belépéshez állítsd be a helyi demóadmint:
+A desktophoz szükséges jelszavas helyi demóadmin beállítása:
 
 ```powershell
 pwsh -File scripts/Configure-DemoAdmin.ps1
 ```
 
-A szkript rejtetten bekéri a jelszót. Alapértelmezett fiókja `admin@example.undefined`; a jelszót te választod, nincs közös beégetett jelszó. Ugyanez a fiók a webes jelszavas belépéshez is használható. A szkript ismételt futtatása az ehhez tartozó meglévő demóadmin jelszavát újra beállítja.
+A szkript rejtetten bekéri a választott jelszót. Fiókja alapból `admin@example.undefined`; ismételt futtatással ennek a demófióknak a jelszava újra beállítható. Ez a lépés módosítja a visszaállított adatbázis demóadminját. Ha ismered egy meglévő dolgozói fiók belépési adatait, a lépés kihagyható. Nincs a README-be írt közös jelszó.
 
-Ezek a parancsok befejeződnek, nem indítanak folyamatosan futó webszervert. A demófeltöltés és a demóadmin konfigurálása csak `Development` környezetben engedélyezett; a megadott launch profile, illetve szkript ezt beállítja.
-
-### 4. API indítása
-
-Az adatbázis előkészítése után, ugyanebben a terminálban:
+Ezután indítsd az API-t, és hagyd futni:
 
 ```powershell
-pwsh -File scripts/Start-Api.ps1
+dotnet run --project API/API.csproj --no-build --launch-profile https
 ```
 
-A szkript fordít, majd elindítja az API-t a `https` launch profile-lal. Hagyd futni ezt a terminált. A már futó projektpéldányt a szkript jelzi; szándékos újraindításhoz használható a `-Restart` kapcsoló.
-
-Másik PowerShell-terminálban ellenőrizd az API-t:
+API: **https://localhost:5001**. Másik terminálból:
 
 ```powershell
 Invoke-RestMethod https://localhost:5001/api/health
 ```
 
-Elérhető SQL Server esetén a válasz `status: ok`, `database: SqlServer`. Ez a kapcsolat ellenőrzése; a migrációk állapotát a 2. lépés ellenőrzi.
+Elvárt válasz: `status: ok`, `database: SqlServer`.
 
-### 5. Webes kliens indítása
+### 5. Webalkalmazás indítása – második terminál
 
-Új terminálban, a repo gyökeréből:
+A repo gyökeréből:
 
 ```powershell
 cd client
@@ -165,162 +167,164 @@ npm ci
 npm run dev
 ```
 
-Nyisd meg: **[https://localhost:3000](https://localhost:3000)**. A Vite a `/api` kéréseket, köztük a SignalR-kapcsolatot, a `https://localhost:5001` API-ra továbbítja. A webes HTTPS-t a `vite-plugin-mkcert` készíti elő; első indításkor tanúsítványtelepítésre lehet szükség.
+Nyisd meg: **[https://localhost:3000](https://localhost:3000)**. A Vite a `/api` kéréseket és a SignalR-kapcsolatot a futó API-ra továbbítja. Első indításkor a helyi HTTPS-tanúsítvány telepítésének jóváhagyása szükséges lehet.
 
-A kezdőlapon válassz DEMÓ szerepkört, vagy jelentkezz be a 3. lépésben beállított fiókkal.
+A kezdőlapon használható az e-mailes/felhasználóneves belépés, illetve a négy DEMÓ szerepkör. A demóbelépés csak helyi, `Development` módban futó API mellett engedélyezett. Bejelentkezés nélkül az Események és az Időpontfoglalás nem indít üzleti adatletöltést.
 
-## Windows Forms és Visual Studio Designer
+### 6. Windows Forms indítása – harmadik terminál
 
-Nyisd meg Visual Studio 2026-ban a [Desktop_Pacienskezelo.slnx](Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx) fájlt. A startup projekt a `Desktop_Pacienskezelo`.
-
-Parancssori fordítás és indítás a repo gyökeréből:
+A repo gyökeréből, már futó API mellett:
 
 ```powershell
-dotnet build Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
-dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj --no-build
+$env:MEDACTIVITIES_API_URL = "https://localhost:5001/api"
+dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj
 ```
 
-Az API-nak már futnia kell. Az alkalmazás induláskor a `/api/health` végponton ellenőrzi az SQL Server-kapcsolatot, majd jelszavas bejelentkezést kér. Az alapértelmezett API-cím `https://localhost:5001/api`; a bejelentkezési felületen vagy indítás előtt a `MEDACTIVITIES_API_URL` környezeti változóval módosítható.
+Jelentkezz be egy adminisztrátor, felvételi irodai dolgozó vagy kezelőorvos jelszavas fiókjával. Páciensfiókhoz a webes felület használható.
 
-A desktop kliens `Admin`, `AdmissionsOffice` és `Practitioner` fiókokat fogad el; a páciensfiókok a webes felületet használják. A desktop felület pácienskeresést és adatlapot, páciens- és eseménykezelést, kezelőhozzárendelést, időpontkezelést, dokumentumokat és megjegyzéseket biztosít a belépett szerepkör engedélyei szerint. A kezelői munkaidő, a felhasználó-adminisztráció és az eseménychat webes felülethez tartozik.
+**A desktop nem közvetlenül SQL Serverhez kapcsolódik:** HTTP-n az API-t használja. Emiatt az API-nak és a LocalDB-nek a desktop teljes használata alatt futnia kell. A webes és asztali felületen ugyanazok az adatok érhetők el; módosítás után a másik kliensben frissítsd a listát.
 
-A webes arculathoz igazított űrlapok:
+Visual Studio 2026-ban nyisd meg a `Desktop_Pacienskezelo/Desktop_Pacienskezelo.slnx` megoldást. Startup projekt: `Desktop_Pacienskezelo`. Az űrlapok külön `.Designer.cs` és `.resx` fájlokat használnak; a Solution Explorerben az űrlap **View Designer / Tervező megnyitása** parancsával szerkeszthetők. Az API külön indítandó.
 
-- `Form1`: bejelentkezés, pácienslista, események és időpontok.
-- `PatientEditForm`: páciens létrehozása és szerkesztése.
-- `ActivityEditForm`: eseményadatok és hozzárendelések.
-- `AppointmentForm`: foglalás és átfoglalás.
-- `RecordsForm`: dokumentumok és megjegyzések.
+### Következő indítások
 
-A Solution Explorerben az adott űrlap `.cs` fájlján válaszd a **View Designer / Tervező megtekintése** parancsot. Minden felsorolt űrlaphoz külön `.Designer.cs` és `.resx` tartozik. A konstruktorok nem indítanak hálózati vagy adatbázis-műveletet, így a tervező megnyitásához nem kell futó API.
+A csomagtelepítést, az adat-visszaállítást és a demóadmin-beállítást nem kell minden alkalommal megismételni.
 
-## Demóadatok és belépés
+1. `SqlLocalDB start MSSQLLocalDB`.
+2. Repo gyökere: `dotnet run --project API/API.csproj --launch-profile https`.
+3. Második terminál, `client` mappa: `npm run dev`.
+4. Harmadik terminál, repo gyökere: `dotnet run --project Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj`.
 
-A feltöltő céldarabszámai: **100 páciens, 50 kezelő és 1000 esemény**. A meglévő rekordokat beleszámítja, a hiányzó adatokat pótolja, és nem írja felül a korábbi rekordokat. Ha valamelyik darabszám már nagyobb a célnál, nem töröl adatot. A feltöltés ismételhető.
+Az alapkonfiguráció a helyi `MedActivities` SQL Server-adatbázist használja. Egyéni környezeti változókat minden új terminálban ismét be kell állítani. Leállítás: a szerverterminálokban `Ctrl+C`, a desktop ablakát zárd be.
 
-A generált adatok fiktívek. A kezelők hétköznapi 08:00–16:00 munkaidőt és engedélyezett foglalhatóságot kapnak. Az 1000 esemény betegút-előzményt jelent; a foglalások külön, a foglalási felületen hozhatók létre.
+## A vizsgaremek célja és működése
 
-| Webes DEMÓ gomb | Felhasználónév                     | Szerepkör          |
-| --------------- | ---------------------------------- | ------------------ |
-| ADMIN           | `demo.egeszsegut.admin`            | `Admin`            |
-| Felvételi iroda | `demo.egeszsegut.admissionsoffice` | `AdmissionsOffice` |
-| Kezelőorvos     | `demo.egeszsegut.practitioner`     | `Practitioner`     |
-| Páciens         | `demo.egeszsegut.patient`          | `Patient`          |
+Az EgészségÚt egy egészségügyi ügyviteli bemutatórendszer: összekapcsolja a páciensek adatlapját, a kezelőorvosokat, a betegút eseményeit, az időpontfoglalást és a kapcsolódó dokumentumokat. A webalkalmazás szerepkör szerint jeleníti meg az elérhető funkciókat; az asztali alkalmazás a dolgozói pácienskezelést támogatja.
 
-Ezek jelszó nélküli bemutatófiókok, a kezdőlap gombjai valódi Identity-munkamenetet hoznak létre. A végpont csak helyi, `Development` környezetben futó API-n használható. A demófiókok – a külön jelszavas desktop demóadmint is beleértve – `Production` környezetben tiltottak.
+Oktatási célú vizsgaremek, nem minősített egészségügyi nyilvántartó rendszer. Bemutatásához fiktív adatok használhatók.
 
-A webes munkamenet `sessionStorage`-ban tárolódik, így az oldalfrissítést túléli. A belépésváltás és kijelentkezés azonos böngészőeredeten a nyitott lapok között `BroadcastChannel` segítségével szinkronizálódik. A kijelentkezés az adott felhasználó korábban kiadott tokenjeit is érvényteleníti; ez a másik kliensben is új belépést igényelhet.
+### Funkciók
 
-További részletek: [Demóadatok és demóbelépés](docs/DEMO-DATA.md).
+- Páciensadatok listázása, keresése, létrehozása, olvasása, jogosultság szerinti szerkesztése és törlése.
+- Magyar dátumformátum; hiányzó vagy érvénytelen születési dátum esetén biztonságos helyettesítő jel.
+- TAJ szöveges tárolása, kilenc számjegyes formai és egyediségi ellenőrzése, kezdő nullák megőrzése; megjelenítés háromjegyű csoportokban. Nem hatósági TAJ-ellenőrzés.
+- Kezelőorvosi profilok, szakterület, helyszín, munkaidő és foglalhatóság kezelése.
+- Eseménykártyák kategóriaképekkel, részletező nézet, dátumtartomány- és szerepkör szerinti szűrés, harmincas lapozás és gyorsítótárazás.
+- Időpontfoglalás, átfoglalás, lemondás és státuszkezelés; szerveroldali munkaidő-, ütközés- és napi foglalásellenőrzés.
+- Páciensekhez kapcsolódó megjegyzések és dokumentumok kezelése. A feltölthető PDF, PNG, JPEG és UTF-8 TXT fájlok legfeljebb 5 MB méretűek.
+- SignalR-alapú eseménychat, adatbázisban tárolt üzenetekkel.
+- Identity-alapú felhasználók és szerepkörök; tokenes munkamenet és kijelentkezés.
+- SQL Serveres törlési archívum: támogatott üzleti rekordok törlés előtti állapotának tárolása. Nem helyettesíti a biztonsági mentést.
 
-## Konfiguráció és adatbázis
+### Szerepkörök
 
-Az alapbeállítások az [API/appsettings.json](API/appsettings.json) fájlban találhatók. Környezeti változóval felülírhatók; a PowerShellben beállított változókat csak az abból indított folyamatok öröklik. Másik terminálban a saját beállításaidat ismét add meg, ha eltérnek az alapértékektől.
+| Szerepkör | Felhasználás |
+| --- | --- |
+| Admin | Felhasználók, szerepkörök, páciensek, kezelőorvosok, hozzáférések, események, foglalások és foglalhatóság adminisztrációja. |
+| Felvételi iroda (`AdmissionsOffice`) | Páciens- és adatlapkezelés, hozzáférések kiosztása, események és foglalások kezelése. |
+| Kezelőorvos (`Practitioner`) | Az összes páciens alapadatainak olvasása, páciens magához rendelése; az **Adatlapkezelő - hozzám rendelt páciensek** nézetben csak saját hozzárendelései jelennek meg. A hozzárendelt páciensek eseménytörténete olvasható, időpont számukra foglalható. Más orvos eseményének olvasása önmagában nem ad szerkesztési jogot. |
+| Páciens (`Patient`) | Saját adatlap és események elérése, engedélyezett saját adatok szerkesztése, időpontfoglalás és saját foglalások kezelése a weben. |
 
-| Környezeti változó                                  | Jelentés / alapérték                                                                                              |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `Database__Provider`                                | `SqlServer`; másik választható érték: `Sqlite`.                                                                   |
-| `ConnectionStrings__SqlServerConnection`            | SQL Server-kapcsolat; alapból helyi LocalDB, `MedActivities` adatbázissal és Windows-hitelesítéssel.              |
-| `ConnectionStrings__DefaultConnection`              | SQLite-kapcsolat; alapból `Data Source=activities.db`.                                                            |
-| `Database__ApplyMigrations`                         | Automatikus induláskori migráció; alapból `false`.                                                                |
-| `Database__SeedDemoData`                            | Korábbi induláskori seed; alapból `false`. A 100/50/1000-es feltöltéshez a `--seed-demo-data` parancsot használd. |
-| `ASPNETCORE_ENVIRONMENT`                            | A `https` launch profile `Development` értéket állít be.                                                          |
-| `Cors__Origins__0`, `Cors__Origins__1`              | Engedélyezett webes eredetek; alapból `http://localhost:3000` és `https://localhost:3000`.                        |
-| `MEDACTIVITIES_API_URL`                             | WinForms API-cím; alapból `https://localhost:5001/api`.                                                           |
-| `VITE_API_URL`                                      | Webes API-alapcím; alapból `/api`. A frontend indításakor vagy fordításakor olvasódik be.                         |
-| `BootstrapAdmin__Email`, `BootstrapAdmin__Password` | Új, nem demó adminisztrátor létrehozása az API indulásakor.                                                       |
+Az API szerveroldalon is ellenőrzi a hozzáférést. A menük elrejtése nem helyettesíti a jogosultságvizsgálatot. Hozzárendelés után a kapcsolódó webes listák automatikusan frissülnek. Nem hozzárendelt páciens betegútja és dokumentumai nem tölthetők le pusztán a pácienslista olvasási joga alapján.
 
-A bootstrap csak még nem létező e-mail-címhez hoz létre admint; meglévő fiókot nem emel adminná. A jelszót a futtatási környezet titokkezelésével add át, és a létrehozás után távolítsd el a bootstrap-beállításokat. Jelszó ne kerüljön verziókezelt konfigurációba vagy a beadandóba. A helyi példában használt `TrustServerCertificate=True` helyett éles telepítéshez ellenőrizhető SQL Server-tanúsítványt használj.
+## Felépítés és technológiák
 
-### SQL Server-migrációk és törlési archívum
+```text
+React web ───────┐
+                ├── ASP.NET Core API ── Application / Persistence / Domain ── SQL Server
+Windows Forms ──┘
+```
 
-A SQL Server kontextusa `SqlServerDbContext`, migrációi a [Persistence/Migrations/SqlServer](Persistence/Migrations/SqlServer) mappában vannak:
+- Frontend: React 19, TypeScript, Vite, Material UI, React Router, TanStack Query, Axios.
+- Backend: .NET 10, ASP.NET Core, Identity, MediatR, SignalR.
+- Adatelérés: Entity Framework Core 10, Microsoft SQL Server.
+- Desktop: .NET 10 Windows Forms, Visual Studio Designer-támogatással.
 
-- `20260913164236_SqlServerInitial`: alap üzleti és Identity-séma.
-- `20260913224530_ChatAndDeletionArchive`: eseménychat és törlési archívum.
+| Mappa / megoldás | Tartalom |
+| --- | --- |
+| `MedActivities.slnx` | API, alkalmazási rétegek, aktív desktop és integrációs tesztek. |
+| `API/Controllers` | HTTP-végpontok. |
+| `API/Services`, `API/Models`, `API/Infrastructure` | API-szolgáltatások, bemeneti modellek és konfiguráció. |
+| `Application` | Alkalmazási műveletek, lekérdezések és MediatR-kezelők. |
+| `Domain` | Üzleti entitások. |
+| `Persistence` | Adatbázis-kontextusok és migrációk. |
+| `client` | Aktív webes frontend. |
+| `Desktop_Pacienskezelo` | Aktív Windows Forms alkalmazás. |
+| `IntegrationTests` | Konzolos SQL Server/API/WinForms tesztprogram. |
+| `database` | Exportáló és ellenőrző szkriptek, valamint a mellékelt adatbázis-exportok. |
+| `scripts`, `docs` | Üzemeltetési segédszkriptek és kiegészítő dokumentáció. |
 
-A dokumentumok legfeljebb 5 MB méretű PDF-, PNG-, JPEG- vagy UTF-8 TXT-fájlok lehetnek. Tartalmuk SQL Serveren `varbinary(max)` mezőbe kerül; nincs külön dokumentumfájlszerver.
+## Konfiguráció és adatmegőrzés
 
-A `DeletedRecords` tábla a támogatott üzleti táblákból törölt rekordok JSON-pillanatképét őrzi. A törlési triggerek a kapcsolatok kaszkádolt törlésekor is ugyanabban a tranzakcióban futnak. Az archívum UPDATE/DELETE műveleteit trigger tiltja; a chat/archívum migráció automatikus visszavonása szintén tiltott. Az archívumhoz nincs alkalmazásbeli visszaállító felület, és nem helyettesíti az adatbázismentést.
+Az API alapbeállításai: `API/appsettings.json`. A `https` indítási profil `Development` környezetet és az 5001-es HTTPS-portot állítja be.
 
-Segédszkript és konfigurációs minta: [Initialize-SqlServer.ps1](scripts/Initialize-SqlServer.ps1), [appsettings.SqlServer.example.json](API/appsettings.SqlServer.example.json). A szkript migrál, de a megadott kapcsolatot nem menti el tartósan az API számára.
+| Beállítás | Jelentés |
+| --- | --- |
+| `Database__Provider=SqlServer` | Aktív SQL Server-provider. |
+| `ConnectionStrings__SqlServerConnection` | SQL Server kapcsolati karakterlánc. |
+| `Database__ApplyMigrations=false` | A migrációt külön parancs indítja. |
+| `Database__SeedDemoData=false` | Ne induljon automatikus adatfeltöltés. |
+| `MEDACTIVITIES_API_URL` | Desktop API-címe, alapból `https://localhost:5001/api`. |
+| `VITE_API_URL` | Frontend API-alapcíme, alapból `/api`. |
 
-### SQLite fejlesztési profil
+A SQL Server-kontextus `SqlServerDbContext`. A migrációk az alap sémát, a chatet/törlési archívumot és a születési hely mezőt is tartalmazzák.
 
-A web/API SQLite-tal is indítható külön fejlesztési munkamenetben. A jelenlegi WinForms kliens ehhez a profilhoz nem használható.
+A SQLite megmaradt külön fejlesztési profilként, de **nem a bemutató alapértelmezett adatbázisa**, és az aktív desktop SQL Serveres API-t ellenőriz. A providerváltás nem másol át adatokat.
 
-Leállított API mellett, a repo gyökeréből:
+**Visszaállított export mellett ne futtasd rutinszerűen** a `--seed-demo-data` parancsot vagy a `database/replace-demo-profiles.sql` szkriptet: ezek módosítják a bemutató adatkészletét, nem az export visszaállítását végzik. A korábbi 100/50/1000-es demófeltöltési cél nem bizonyítja a végleges export darabszámait.
+
+Az exportot a `database/Export-Database.ps1` segédszkript támogatja, megfelelő, naprakész `schema.sql` mellett. A mellékelt exportok elkészültek és visszaállítási ellenőrzésen estek át. Új exporthoz új célmappát adj meg: a szkript nem írja felül a meglévő mentést. A dump újraellenőrizhető a `pwsh -File database/Verify-Export.ps1` paranccsal; ez külön ideiglenes tesztadatbázist használ és a végén eltávolítja.
+
+## Ellenőrzés és ismert állapot
+
+Frontend:
 
 ```powershell
-$env:Database__Provider = "Sqlite"
-$env:ConnectionStrings__DefaultConnection = "Data Source=activities.db"
-dotnet ef database update --context AppDbContext --project Persistence/Persistence.csproj --startup-project API/API.csproj
-dotnet run --project API/API.csproj --no-build --launch-profile https
+cd client
+npm run build
+npm run lint
+node --experimental-strip-types --test tests/date-format.test.mjs
 ```
 
-SQLite esetén a kontextus `AppDbContext`; a SQL Server törlési triggerei nem részei ennek a profilnak. Az SQL Serverre való visszatéréskor állítsd le az API-t, majd állítsd vissza a `Database__Provider` értékét `SqlServer`-re.
+A dátumteszthez TypeScript-típuseltávolítást támogató Node.js 22.6+ szükséges; a fenti 22.12+ előfeltétel ezt teljesíti.
 
-A providerváltás nem másolja át a meglévő SQLite-adatokat. Adatátvitelhez mentés, célzott import, valamint TAJ-, kapcsolat- és darabszámellenőrzés szükséges. Részletes háttér: [SQL Server útmutató](docs/SQL-SERVER.md).
-
-## Fordítás és ellenőrzés
-
-A build előtt állítsd le az API-t és a futó WinForms alkalmazást. A parancsokat a repo gyökeréből futtasd:
+Integrációs tesztek a repo gyökeréből, leállított API és desktop mellett:
 
 ```powershell
 dotnet build IntegrationTests/IntegrationTests.csproj
 dotnet run --project IntegrationTests/IntegrationTests.csproj --no-build -- (Get-Location).Path
 ```
 
-Az integrációs projekt az aktív API-t, az adatelérési réteget és a WinForms klienst is lefordítja. Saját konzolos tesztprogram, ezért `dotnet run` indítja, nem `dotnet test`.
-
-A teszt telepített LocalDB-t igényel. Minden futáskor külön `MedActivities_Test_<azonosító>` adatbázist és külön helyi API-folyamatot használ; a végén a létrehozott tesztadatbázist törli. A szokásos `MedActivities` adatbázist nem célozza. Ellenőrzi többek között a CRUD-műveleteket, jogosultságokat, TAJ-egyediséget, foglalási ütközéseket, dokumentumokat, demóbelépést és ismételt adatfeltöltést, chatet, törlési archívumot és a WinForms API-kliensét.
-
-Az űrlapokat API nélkül is példányosítja, és képeket készít róluk az `artifacts/verification` mappába. Ez kiegészíti, de nem helyettesíti a Visual Studio Designer kézi megnyitását. Sikeres futás végén `SUCCESS: ... checks passed.` jelenik meg.
-
-Frontend-ellenőrzés:
+Csak a kezelőorvosi tesztág:
 
 ```powershell
-cd client
-npm ci
-npm run lint
-npm run build
+dotnet run --project IntegrationTests/IntegrationTests.csproj --no-build -- (Get-Location).Path --practitioner
 ```
 
-Az `npm run build` TypeScript-ellenőrzést és Vite kiadási fordítást végez; az eredmény a `client/dist` mappába kerül. A README nem helyettesít egy új környezetben elvégzett tesztfutást.
+Ez konzolos tesztprogram, nem `dotnet test` projekt. Külön `MedActivities_Test_<azonosító>` LocalDB-adatbázist hoz létre, majd a tesztadatbázist eltávolítja; a bemutató-adatbázist nem használja.
 
-## Kiadás
+A legutóbbi ellenőrzések során az API-fordítás, a frontend TypeScript-ellenőrzése, az érintett fájlok lintellenőrzése és a dátumtesztek sikeresek voltak. SQL Serveren működött az önmagához rendelés, a hozzárendelt páciens eseménytörténetének lekérése és az orvosi foglalás.
 
-A webes és API-kiadást külön kell elkészíteni:
+**Nyitott ellenőrzési pont:** az integrációs futás eseménytörlésnél, illetve kezelői hozzáférés visszavonásánál 500-as hibát jelzett. A teljes tesztcsomag sikeressége ezért nem állítható. A build a `SQLitePCLRaw.lib.e_sqlite3 2.1.11` csomagra NU1903 biztonsági figyelmeztetést is ad. Ezeket a végleges átadás előtt rendezni és újratesztelni kell.
 
-```powershell
-npm --prefix client run build
-dotnet publish API/API.csproj -c Release -o artifacts/publish/API
-dotnet publish Desktop_Pacienskezelo/Desktop_Pacienskezelo/Desktop_Pacienskezelo.csproj -c Release -o artifacts/publish/WinForms
-```
+## Hibaelhárítás
 
-Az API publish nem fordítja és nem csomagolja automatikusan a frontendet. Közös kiszolgáláshoz másold a `client/dist` **tartalmát** a publikált API `wwwroot` mappájába; az API statikus kiszolgálást és kliensoldali útvonalkezeléshez fallbacket biztosít. Külön webes tárhelynél add meg a megfelelő `VITE_API_URL` értéket még a frontend build előtt, és konfiguráld a CORS-eredeteket, valamint a SignalR továbbítását.
+- **Git Bash: `command not found` az `$env:` soroknál:** válts PowerShellre.
+- **Üres adatbázis migráció után:** a migráció sémát hoz létre, nem állít vissza adatokat. Teljes BAK vagy SQL-dump szükséges.
+- **Hiányzó mentés klónozás után:** ellenőrizd, hogy az exportfájlokat tartalmazó commitot feltöltötték-e, és a megfelelő ágat klónoztad-e.
+- **A céladatbázis már létezik:** a visszaállítás szándékosan megáll. Ne töröld a meglévőt és ne használj vakon `WITH REPLACE` kapcsolót; előbb készíts mentést és dönts a megőrzéséről.
+- **A mentés újabb SQL Server-verzióból származik:** használj kompatibilis újabb példányt, vagy kérj a célverzióra ellenőrzött SQL-dumpot.
+- **API build: fájl használatban:** állítsd le a korábbi API-t vagy Visual Studio hibakeresést.
+- **HTTPS-hiba:** futtasd a `dotnet dev-certs https --trust` parancsot; a frontend tanúsítványának telepítését is engedélyezd.
+- **Demóbelépés sikertelen:** az API a `https` profilban, helyben fusson; ellenőrizd az API terminálját és a health-választ.
+- **Desktop nem csatlakozik:** az API fusson, a cím végén `/api` legyen, a health-válaszban pedig `SqlServer`.
+- **Nincs foglalható időpont:** legyen engedélyezve a kezelő foglalhatósága és az adott napi munkaideje; a dátum legyen jövőbeli és az időpont szabad.
 
-A fenti publish parancsok keretrendszerfüggő kimenetet készítenek: az API-hoz .NET 10 ASP.NET Core Runtime, a WinForms futtatásához .NET 10 Desktop Runtime szükséges. Telepítéskor külön állítsd be az SQL Server-kapcsolatot, alkalmazd a migrációkat, és használj nem demó felhasználói fiókokat.
+## Beadási csomag és bemutatás
 
-Forráskódos beadásnál a README, a projektfájlok, a `dotnet-tools.json`, a `client/package-lock.json`, a migrációk és a szkriptek is legyenek benne a csomagban. Valós betegadat, jelszó, adatbázisfájl, mentés, `.vs`, `node_modules`, `bin`, `obj` vagy tesztartefaktum ne kerüljön a forráscsomagba.
-|
+A beadás része legyen a forráskód, ez a README, a projekt- és solutionfájlok, migrációk, csomagzárak, valamint **a `database/exports/20260915` mappa végleges adatbázis-exportjai**. Ne csomagolj `node_modules`, `bin`, `obj`, `.vs` vagy titkos konfigurációs fájlokat.
 
-## Ismert korlátozások
-
-- A dokumentumfeltöltés méret-, fájlnév- és alapvető tartalomellenőrzést végez; nincs beépített víruskereső.
-
-## Bemutatás előtti ellenőrzés
-
-- [x] A migráció naprakész, az API health-válasza `SqlServer`.
-- [ ] A demófeltöltés lefutott; a darabszámokat a státuszparancs visszaadja.
-- [ ] Mind a négy webes DEMÓ belépés és a szerepkör szerinti adatláthatóság kipróbálva.
-- [ ] Páciens, esemény, időpont, dokumentum, megjegyzés és chat kipróbálva.
-- [ ] A WinForms jelszavas belépése működik, és a weben módosított adat frissítés után megjelenik benne.
-- [ ] Az űrlapok Visual Studio Designerben megnyithatók.
-- [ ] Az aktív projektek integrációs tesztje, a frontend lint és a frontend build sikeres.
-- [ ] A csomag nem tartalmaz titkokat vagy valós páciensadatokat; a gyökérsolution korlátozása rendezve vagy feltüntetve.
-
-Kiegészítő dokumentáció: [Demóadatok](docs/DEMO-DATA.md), [SQL Server](docs/SQL-SERVER.md), [WinForms](Desktop_Pacienskezelo/README.md), [kiadási ellenőrzőlista](docs/RELEASE-CHECKLIST.md).
+A bemutató előtt új gépen ellenőrizd a visszaállítást, a négy webes szerepkört, az orvosi hozzárendelést és foglalást, a desktop belépést és közös adatait, valamint a Designer megnyitását. A dokumentáció nem helyettesíti ezt a telepítési próbát.
 
 ## Szerző
 

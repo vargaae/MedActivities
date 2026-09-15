@@ -55,7 +55,12 @@ try {
             $writer.WriteLine('-- Full schema + data. Run against a NEW EMPTY database with sqlcmd -b -f 65001.')
             $writer.WriteLine('IF EXISTS (SELECT 1 FROM sys.tables) THROW 51000, ''Target database must be empty.'', 1;')
             $writer.WriteLine('GO')
-            $writer.WriteLine([IO.File]::ReadAllText([IO.Path]::GetFullPath($SchemaFile)))
+            $writer.WriteLine('SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET CONCAT_NULL_YIELDS_NULL ON; SET ARITHABORT ON; SET NUMERIC_ROUNDABORT OFF;')
+            $writer.WriteLine('GO')
+            $schema = [IO.File]::ReadAllText([IO.Path]::GetFullPath($SchemaFile))
+            # EF-generated raw trigger SQL needs separate sqlcmd batches.
+            $schema = [regex]::Replace($schema, '(?ms)^CREATE TRIGGER.*?^END\r?$', "GO`n`$0`nGO")
+            $writer.WriteLine($schema)
             $writer.WriteLine('GO')
             $writer.WriteLine('SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET CONCAT_NULL_YIELDS_NULL ON; SET ARITHABORT ON; SET NUMERIC_ROUNDABORT OFF; SET XACT_ABORT ON; BEGIN TRANSACTION;')
             foreach ($table in $tables.Rows) { $writer.WriteLine("ALTER TABLE [$($table.SchemaName)].[$($table.TableName)] NOCHECK CONSTRAINT ALL;") }
