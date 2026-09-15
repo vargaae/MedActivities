@@ -14,6 +14,8 @@ import agent from "../../lib/api/agent";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import PatientRecordsPanel from "./PatientRecordsPanel";
 import { errorText } from "./shared";
+import PersonSearch from '../../app/shared/components/PersonSearch';
+import PatientAvatar from '../../app/shared/components/PatientAvatar';
 
 type Patient = {
   id: string;
@@ -51,7 +53,7 @@ export default function HealthRecordsPage() {
       )}
       {selected && (
         <>
-          <TextField
+          {session.data?.roles.includes('Admin') ? <Box sx={{ my: 2 }}><PersonSearch label="Páciens keresése" options={patients.data ?? []} value={selected.id} onChange={setId} /></Box> : <TextField
             fullWidth
             select
             label="Páciens"
@@ -64,7 +66,7 @@ export default function HealthRecordsPage() {
                 {p.name}
               </MenuItem>
             ))}
-          </TextField>
+          </TextField>}
           <PatientDetails
             key={session.version + selected.id}
             patient={selected}
@@ -105,6 +107,7 @@ function PatientDetails({
   });
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
+      <PatientAvatar name={patient.name} />
       <Typography>
         {patient.name} · TAJ: {patient.tajNumber} · Született:{" "}
         {patient.birthDate}

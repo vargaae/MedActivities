@@ -84,7 +84,7 @@ export default function NavBar() {
       ? [
           {
             to: "/practitioners",
-            label: "Kezelők",
+            label: "Kezelőorvosok",
             Icon: MedicalServicesRounded,
           },
         ]

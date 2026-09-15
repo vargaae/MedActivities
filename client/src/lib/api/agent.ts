@@ -1,4 +1,4 @@
-import { getActivityToken, setActivityToken } from "./activitySession";
+import { getActivityToken } from "./activitySession";
 import axios from "axios";
 import { store } from "../stores/store";
 import { toast } from "react-toastify";
@@ -58,16 +58,6 @@ agent.interceptors.response.use(
             ? data
             : (data.message ?? "Ütközés az adatokban."),
         );
-        break;
-      case 401:
-        // A late response belonging to the previous user must not clear the new session.
-        if (
-          getActivityToken() &&
-          error.config?.headers?.Authorization ===
-            `Bearer ${getActivityToken()}`
-        )
-          setActivityToken("");
-        toast.error("Sikeres kijelentkezés. Kérjük, jelentkezzen be újra.");
         break;
       case 403:
         toast.error("Nem engedélyezett hozzáférés.");

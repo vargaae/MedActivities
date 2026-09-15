@@ -1,10 +1,6 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { Alert } from "@mui/material";
+import { Link } from "react-router";
 import {
-  AdminPanelSettingsOutlined,
   BadgeOutlined,
   MedicalServicesOutlined,
   PersonOutlineRounded,
@@ -14,85 +10,10 @@ import {
   CheckRounded,
   HubOutlined,
 } from "@mui/icons-material";
-import { changeSession } from "../../lib/api/changeSession";
 import AuthDialog from "./AuthDialog";
-
-const roles = [
-  {
-    id: "Admin",
-    name: "ADMIN",
-    detail: "Teljes áttekintés",
-    Icon: AdminPanelSettingsOutlined,
-    color: "blue",
-  },
-  {
-    id: "AdmissionsOffice",
-    name: "Felvételi iroda",
-    detail: "Szervezés és koordináció",
-    Icon: BadgeOutlined,
-    color: "teal",
-  },
-  {
-    id: "Practitioner",
-    name: "Kezelőorvos",
-    detail: "A kezelőorvos nézete",
-    Icon: MedicalServicesOutlined,
-    color: "indigo",
-  },
-  {
-    id: "Patient",
-    name: "Páciens",
-    detail: "A saját egészségutad",
-    Icon: PersonOutlineRounded,
-    color: "amber",
-  },
-];
-const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
 
 export default function HomePage() {
   const [authOpen, setAuthOpen] = useState(false);
-  const [pending, setPending] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
-  const cache = useQueryClient();
-  const demo = useQuery({
-    queryKey: ["demo-availability"],
-    queryFn: async () =>
-      (await axios.get<{ enabled: boolean }>(`${base}/dev-session`)).data,
-    enabled: import.meta.env.DEV,
-    retry: false,
-    staleTime: 60000,
-  });
-  async function enter(role: string) {
-    if (pending) return;
-    setPending(role);
-    setError("");
-    try {
-      await changeSession(
-        cache,
-        async () =>
-          (
-            await axios.post<{ accessToken: string }>(
-              `${base}/dev-session/${role}`,
-            )
-          ).data.accessToken,
-      );
-      await navigate("/activities");
-    } catch (failure) {
-      const status = axios.isAxiosError(failure)
-        ? failure.response?.status
-        : undefined;
-      setError(
-        status === 404
-          ? "A demóbelépés csak helyi, fejlesztői módban futó API-val használható."
-          : status === 500
-            ? "A demófiók előkészítésekor szerverhiba történt. Ellenőrizd az API naplóját, majd indítsd újra a javított API-t."
-            : "A demóbelépés nem sikerült. Ellenőrizd, hogy elérhető-e a helyi API.",
-      );
-    } finally {
-      setPending("");
-    }
-  }
   return (
     <div className="eu-home">
       <section className="eu-hero" aria-labelledby="home-heading">

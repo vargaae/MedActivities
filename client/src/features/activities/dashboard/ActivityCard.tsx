@@ -1,92 +1,31 @@
+import { AccessTime, Place, ArrowForwardRounded } from '@mui/icons-material';
+import { Box, Button, Card, CardContent, Chip, Typography } from '@mui/material';
+import { Link } from 'react-router';
 import ActivityPeople from '../details/ActivityPeople';
-import { AccessTime, Place } from "@mui/icons-material";
-import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Chip,
-  Divider,
-  Typography,
-} from "@mui/material";
-import { Link } from "react-router";
-import { formatDate } from "../../../lib/util/util";
+import { categoryImage } from './categoryImage';
 
-type Props = {
-  activity: Activity;
-};
-
-export default function ActivityCard({ activity }: Props) {
-  const isHost = false;
-  const isGoing = false;
-  const label = isHost ? "You are hosting" : "You are going";
-  const isCancelled = activity.isCancelled;
-  const color = isHost ? "secondary" : isGoing ? "warning" : "default";
-
-  return (
-    <Card elevation={3} sx={{ borderRadius: 3 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <CardHeader
-          avatar={<Avatar sx={{ height: 80, width: 80 }} />}
-          title={activity.title}
-          slotProps={{
-            title: {
-              fontWeight: "bold",
-              fontSize: 20,
-            },
-          }}
-          subheader={
-            <>
-              Kezelőorvos: {activity.practitioners?.map(p => p.name).join(', ') || 'Nincs hozzárendelve'}
-            </>
-          }
-        />
-        <Box display="flex" flexDirection="column" gap={2} mr={2}>
-          {(isHost || isGoing) && (
-            <Chip label={label} color={color} sx={{ borderRadius: 2 }} />
-          )}
-          {isCancelled && (
-            <Chip label="Lemondva" color="error" sx={{ borderRadius: 2 }} />
-          )}
+export default function ActivityCard({ activity }: { activity: Activity }) {
+    const image = categoryImage(activity.category);
+    const status = ({ Scheduled: 'Tervezett', Completed: 'Befejezett', Cancelled: 'Lemondva', NoShow: 'Nem jelent meg' } as Record<string, string>)[activity.status] ?? activity.status;
+    return <Card variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', borderColor: '#dce8e4', transition: 'box-shadow .2s',
+        '&:hover': { boxShadow: '0 12px 32px #1c5a4a18' } }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' } }}>
+            <Box component="img" src={image.src} alt="" loading="lazy" sx={{ width: '100%', height: { xs: 150, sm: '100%' }, minHeight: { sm: 210 }, objectFit: 'cover' }} />
+            <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+                    <Chip label={image.label} size="small" sx={{ bgcolor: '#e5f3ee', color: '#256b59' }} />
+                    <Chip label={activity.isCancelled ? 'Lemondva' : status} size="small" variant="outlined" color={activity.isCancelled ? 'error' : 'default'} />
+                </Box>
+                <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1 }}>{activity.title}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><AccessTime fontSize="small" color="action" /><Typography variant="body2">{new Date(activity.date).toLocaleString('hu-HU', { dateStyle: 'medium', timeStyle: 'short' })}</Typography></Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Place fontSize="small" color="action" /><Typography variant="body2">{activity.city} · {activity.venue}</Typography></Box>
+            </CardContent>
         </Box>
-      </Box>
-      <Divider sx={{ mb: 3 }} />
-      <CardContent sx={{ p: 0 }}>
-        <Box display="flex" alignItems="center" mb={2} px={2}>
-          <Box display="flex" flexGrow={0} alignItems="center">
-            <AccessTime sx={{ mr: 1 }} />
-            <Typography variant="body2" noWrap>
-              {formatDate(activity.date)}
-            </Typography>
-          </Box>
-
-          <Place sx={{ ml: 3, mr: 1 }} />
-          <Typography variant="body2">{activity.venue}</Typography>
+        <Box sx={{ px: 3, py: 2, bgcolor: '#f6faf8', borderTop: '1px solid #e5eeea' }}><ActivityPeople activity={activity} /></Box>
+        <Box sx={{ px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 180, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activity.description}</Typography>
+            <Button component={Link} to={`/activities/${activity.id}`} variant="contained" endIcon={<ArrowForwardRounded />} sx={{ borderRadius: 2 }}>Részletek</Button>
         </Box>
-        <Divider />
-        <Box
-          display="flex"
-          gap={2}
-          sx={{ backgroundColor: "grey.200", py: 3, pl: 3 }}
-        >
-          <ActivityPeople activity={activity} />
-        </Box>
-      </CardContent>
-      <CardContent sx={{ paddingBottom: 3 }}>
-        <Typography variant="body2">{activity.description}</Typography>
-        <Button
-          component={Link}
-          to={`/activities/${activity.id}`}
-          variant="contained"
-          color="primary"
-          sx={{ display: "flex", justifySelf: "self-end", borderRadius: 3 }}
-        >
-          Megtekintés
-        </Button>
-      </CardContent>
-    </Card>
-  );
+    </Card>;
 }
 

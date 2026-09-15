@@ -50,8 +50,8 @@ public static class DemoSessionSetup
             if(assigned.Any(r=>r!=role))throw new InvalidOperationException("A demófiók szerepköreit megváltoztatták; a demóbelépés leállt.");
             if(!assigned.Contains(role))MedSetup.Check(await users.AddToRoleAsync(user,role));
         }
-        var patientId=Prefix+"patient-profile";
-        var doctorId=Prefix+"doctor-profile";
+        var patientId=await db.Patients.Where(p=>p.UserId==Prefix+"Patient").Select(p=>p.Id).SingleOrDefaultAsync() ?? Prefix+"patient-profile";
+        var doctorId=await db.Practitioners.Where(p=>p.UserId==Prefix+"Practitioner").Select(p=>p.Id).SingleOrDefaultAsync() ?? Prefix+"doctor-profile";
         if(!await db.Patients.AnyAsync(p=>p.Id==patientId))db.Patients.Add(new Patient {
             Id=patientId,UserId=Prefix+"Patient",Name=Names[3],TajNumber="000008011",
             BirthDate=new DateOnly(1990,1,15),Notes="Kizárólag fiktív demóadat."

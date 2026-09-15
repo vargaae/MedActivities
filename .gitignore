@@ -113,6 +113,8 @@ secrets.json
 
 *.backup
 *.sql
+!database/*.sql
+database/exports/
 
 ############################
 

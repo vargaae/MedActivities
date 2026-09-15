@@ -26,6 +26,17 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
             User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray(), patientId, practitionerId), ct));
     }
 
+    [HttpGet("page"), Authorize]
+    public async Task<IActionResult> GetPage(CancellationToken ct, int page = 1, string? patientId = null,
+        string? practitionerId = null, string? category = null, DateTime? from = null, DateTime? to = null)
+    {
+        if (page < 1 || page > 100000 || (from.HasValue && to.HasValue && from >= to))
+            return BadRequest(new { message = "Érvénytelen lap vagy dátumtartomány." });
+        return Ok(await mediator.Send(new GetActivityPage.Query(access.UserId,
+            User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray(),
+            page, patientId, practitionerId, category, from, to), ct));
+    }
+
     [HttpGet("{id}"), AllowAnonymous]
     public async Task<IActionResult> GetActivity(string id,CancellationToken ct)
     {

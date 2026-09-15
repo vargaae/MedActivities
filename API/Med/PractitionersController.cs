@@ -18,8 +18,8 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     [HttpPost,Authorize(Roles="Admin")]
     public async Task<IActionResult> Create(PractitionerInput i) {
         var u=await users.FindByIdAsync(i.UserId); if(u is null || !await users.IsInRoleAsync(u,"Practitioner")) return BadRequest("Practitioner role-lal rendelkező felhasználó szükséges.");
-        if (await db.Practitioners.AnyAsync(p => p.UserId == i.UserId)) return Conflict(new { message = "Ehhez a fiókhoz már tartozik kezelőprofil. A meglévő kezelőt szerkeszd, vagy válassz szabad Practitioner-fiókot." });
-        if (await db.Practitioners.AnyAsync(p => p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már szerepel a kezelők között." });
+        if (await db.Practitioners.AnyAsync(p => p.UserId == i.UserId)) return Conflict(new { message = "Ehhez a fiókhoz már tartozik kezelőorvos profil. A meglévő kezelőorvosot szerkeszd, vagy válassz szabad Practitioner-fiókot." });
+        if (await db.Practitioners.AnyAsync(p => p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már szerepel a kezelőorvosok között." });
         var p=new PractitionerProfile{Name=i.Name.Trim(),TajNumber=i.TajNumber,UserId=i.UserId,Specialty=i.Specialty,City=i.City,Venue=i.Venue};
         p.BookingSettings=new(){PractitionerId=p.Id}; db.Practitioners.Add(p); await db.SaveChangesAsync();
         return CreatedAtAction(nameof(Details),new{id=p.Id},new{p.Id});
@@ -27,15 +27,15 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     [HttpPut("{id}"),Authorize(Roles="Admin")]
     public async Task<IActionResult> Edit(string id,PractitionerInput i) {
         var p=await db.Practitioners.FindAsync(id); if(p is null) return NotFound();
-        if(i.UserId!=p.UserId) return BadRequest("A kezelő felhasználói kapcsolata nem módosítható.");
-        if (await db.Practitioners.AnyAsync(p => p.Id != id && p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már másik kezelőhöz tartozik." });
+        if(i.UserId!=p.UserId) return BadRequest("A kezelőorvos felhasználói kapcsolata nem módosítható.");
+        if (await db.Practitioners.AnyAsync(p => p.Id != id && p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már másik kezelőorvoshoz tartozik." });
         p.Name=i.Name.Trim();p.TajNumber=i.TajNumber;p.Specialty=i.Specialty;p.City=i.City;p.Venue=i.Venue;
         await db.SaveChangesAsync();return NoContent();
     }
     [HttpDelete("{id}"),Authorize(Roles="Admin")]
     public async Task<IActionResult> Delete(string id) {
         var p=await db.Practitioners.FindAsync(id);if(p is null)return NotFound();
-        if(await db.Appointments.AnyAsync(a=>a.PractitionerId==id)||await db.ActivityPractitioners.AnyAsync(a=>a.PractitionerId==id))return Conflict("Kapcsolt kezelő nem törölhető.");
+        if(await db.Appointments.AnyAsync(a=>a.PractitionerId==id)||await db.ActivityPractitioners.AnyAsync(a=>a.PractitionerId==id))return Conflict("Kapcsolt kezelőorvos nem törölhető.");
         db.Remove(p);await db.SaveChangesAsync();return NoContent();
     }
     [HttpGet("available-accounts"), Authorize(Roles="Admin")]

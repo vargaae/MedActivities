@@ -6,6 +6,7 @@ import agent from '../../lib/api/agent';
 import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
 import { errorText, type ManagedUser } from './shared';
 import PatientRecordsPanel from './PatientRecordsPanel';
+import PatientAvatar from '../../app/shared/components/PatientAvatar';
 type Patient = { id: string; name: string; tajNumber: string; birthDate: string; email: string; phone: string; address: string; notes: string; userId?: string };
 type EventItem = { id: string; title: string; date: string; status: string };
 const blank = { id: '', name: '', tajNumber: '', birthDate: '', email: '', phone: '', address: '', notes: '' };
@@ -28,7 +29,7 @@ export default function PatientsPage() {
         {!staff && <Alert severity="info">A hozzád rendelt páciensek adatait láthatod; megjegyzéseiket és dokumentumaikat az adatlapon kezelheted.</Alert>}
         {list.isPending && <Typography>Betöltés…</Typography>}{list.isError && <Alert severity="error">A pácienslista nem tölthető be.</Alert>}
         {list.data?.filter(p => p.name.toLocaleLowerCase('hu').includes(search.toLocaleLowerCase('hu'))).map(p => <Paper key={p.id} sx={{ p: 2 }}>
-            <Typography variant="h6">{p.name}</Typography><Typography>TAJ: {p.tajNumber} · Született: {p.birthDate}</Typography>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}><PatientAvatar name={p.name} /><Typography variant="h6">{p.name}</Typography></Box><Typography>TAJ: {p.tajNumber} · Született: {p.birthDate}</Typography>
             <Button onClick={() => { setSelected(p); setUserId(p.userId ?? ''); }}>Adatlap és események</Button>{staff && <><Button onClick={() => { setError(''); setForm({ ...p }); }}>Szerkesztés</Button><Button color="error" onClick={() => setRemove(p)}>Törlés</Button></>}
         </Paper>)}
         {list.data?.length === 0 && <Typography>Nincs páciens.</Typography>}

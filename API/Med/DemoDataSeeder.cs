@@ -32,6 +32,8 @@ public static class DemoDataSeeder
 
     public static async Task SeedAsync(AppDbContext db, UserManager<AppUser> users, RoleManager<IdentityRole> roles)
     {
+        if (await db.Patients.AnyAsync(p => p.Id.StartsWith("hu-sample-v2-")))
+            throw new InvalidOperationException("A magyar mintakészlet már telepítve van; a régi demóadatok visszatöltése letiltva.");
         await DemoSessionSetup.Gate.WaitAsync();
         try {
             await using var transaction = await db.Database.BeginTransactionAsync();

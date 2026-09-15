@@ -7,6 +7,7 @@ import { useActivityAccess } from '../../lib/hooks/useActivityAccess';
 import ActivityLogin from '../activities/form/ActivityLogin';
 import AppointmentActions from './AppointmentActions';
 import { errorText } from '../management/shared';
+import PersonSearch from '../../app/shared/components/PersonSearch';
 type Person = { id: string; name: string; bookingEnabled?: boolean };
 type Appointment = { id: string; startTime: string; activityId: string; status: number; patientId: string; practitionerId: string };
 export default function MedBookingPage() {
@@ -54,10 +55,11 @@ function BookingEditor({ version }: { version: number }) {
                 <MenuItem value="">Válassz pácienst…</MenuItem>
                 {people.data?.patients.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
             </TextField>
-            <TextField id="booking-practitioner" name="practitionerId" select label="Kezelőorvos" value={practitionerId} onChange={e => { setPractitionerId(e.target.value); setMessage(''); }}>
+            {session.data?.roles.includes('Admin') ? <PersonSearch label="Kezelőorvos keresése" options={people.data?.doctors.filter(d => d.bookingEnabled) ?? []} value={practitionerId} onChange={id => { setPractitionerId(id); setMessage(''); }} /> : <TextField id="booking-practitioner" name="practitionerId" select label="Kezelőorvos" value={practitionerId} onChange={e => { setPractitionerId(e.target.value); setMessage(''); }}>
                 <MenuItem value="">Válassz kezelőorvost…</MenuItem>
                 {people.data?.doctors.filter(d => d.bookingEnabled).map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
             </TextField>
+            }
             {people.data && !people.data.doctors.some(d => d.bookingEnabled) && <Alert severity="info">Nincs engedélyezett kezelőorvos. Az adminnak engedélyeznie kell a foglalást, és munkaidőt kell beállítani.</Alert>}
             <TextField id="booking-date" name="date" type="date" label="Dátum" slotProps={{ inputLabel: { shrink: true } }} value={date} onChange={e => { setDate(e.target.value); setMessage(''); }} />
             {slots.isFetching && <Typography>Szabad időpontok betöltése…</Typography>}

@@ -23,7 +23,7 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
                         setMode(0); setForm({ ...form, password: '' }); setSuccess(true); setMessage('A fiók és a profil elkészült. Jelentkezz be.');
                     } else {
                         await changeSession(cache, async () => (await axios.post<{ accessToken: string }>(`${base}/session/login`, { userName: form.userName, password: form.password })).data.accessToken);
-                        setForm({ ...form, password: '' }); onClose(); await navigate('/activities');
+                        setForm({ ...form, password: '' }); onClose(); await navigate('/activities'); window.location.reload();
                     }
                 } catch (error) {
                     const data = axios.isAxiosError(error) ? error.response?.data : null;
