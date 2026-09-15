@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  MenuItem,
   Paper,
   TextField,
   Typography,
@@ -14,6 +13,7 @@ import agent from "../../lib/api/agent";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import PatientRecordsPanel from "./PatientRecordsPanel";
 import { errorText } from "./shared";
+import { formatDateOnly, formatTaj } from '../../lib/util/util';
 import PersonSearch from '../../app/shared/components/PersonSearch';
 import PatientAvatar from '../../app/shared/components/PatientAvatar';
 
@@ -22,6 +22,7 @@ type Patient = {
   name: string;
   tajNumber: string;
   birthDate: string;
+  birthPlace?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -35,12 +36,14 @@ export default function HealthRecordsPage() {
     queryFn: async ({ signal }) =>
       (await agent.get<Patient[]>("/patients", { signal })).data,
   });
+  const practitioner = session.data?.roles.includes('Practitioner') ?? false;
+  const availablePatients = patients.data ?? [];
   const selected =
-    patients.data?.find((p) => p.id === id) ?? patients.data?.[0];
+    availablePatients.find((p) => p.id === id) ?? availablePatients[0];
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Adatlapkezelő
+        {practitioner ? 'Adatlapkezelő - hozzám rendelt páciensek' : 'Adatlapkezelő'}
       </Typography>
       {patients.isPending && <Typography>Betöltés…</Typography>}
       {patients.isError && (
@@ -53,26 +56,18 @@ export default function HealthRecordsPage() {
       )}
       {selected && (
         <>
-          {session.data?.roles.includes('Admin') ? <Box sx={{ my: 2 }}><PersonSearch label="Páciens keresése" options={patients.data ?? []} value={selected.id} onChange={setId} /></Box> : <TextField
+          {session.data?.roles.some(role => ['Admin', 'AdmissionsOffice', 'Practitioner'].includes(role)) ? <Box sx={{ my: 2 }}><PersonSearch label="Páciens keresése" options={availablePatients} value={selected.id} onChange={setId} /></Box> : <TextField
             fullWidth
-            select
-            label="Páciens"
-            value={selected.id}
-            onChange={(e) => setId(e.target.value)}
+            label="Páciens teljes neve"
+            value={selected.name}
+            slotProps={{ input: { readOnly: true } }}
             sx={{ my: 2 }}
-          >
-            {patients.data?.map((p) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.name}
-              </MenuItem>
-            ))}
-          </TextField>}
+          />}
           <PatientDetails
             key={session.version + selected.id}
             patient={selected}
             editable={
-              !!session.data?.canAssign ||
-              selected.userId === session.data?.userId
+              !!session.data?.canAssign || (!!selected.userId && selected.userId === session.data?.userId)
             }
           />
         </>
@@ -88,6 +83,7 @@ function PatientDetails({
   editable: boolean;
 }) {
   const cache = useQueryClient();
+  const [profile, setProfile] = useState({ name: patient.name, birthDate: patient.birthDate, birthPlace: patient.birthPlace ?? '' });
   const [contact, setContact] = useState({
     email: patient.email ?? "",
     phone: patient.phone ?? "",
@@ -108,10 +104,14 @@ function PatientDetails({
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <PatientAvatar name={patient.name} />
-      <Typography>
-        {patient.name} · TAJ: {patient.tajNumber} · Született:{" "}
-        {patient.birthDate}
-      </Typography>
+      <TextField label="Páciens teljes neve" value={profile.name} disabled={!editable || busy} onChange={e => setProfile({ ...profile, name: e.target.value })} />
+      <Typography variant="subtitle2">TAJ szám</Typography><Typography>{formatTaj(patient.tajNumber)}</Typography>
+      <Typography variant="subtitle2">Születési dátum, hely</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+        <TextField type="date" label="Születési dátum" value={profile.birthDate?.slice(0,10)} disabled={!editable || busy} onChange={e => setProfile({ ...profile, birthDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+        <TextField label="Születési hely" value={profile.birthPlace} disabled={!editable || busy} onChange={e => setProfile({ ...profile, birthPlace: e.target.value })} />
+      </Box>
+      <Typography color="text.secondary">Született: {formatDateOnly(profile.birthDate)}</Typography>
       {error && <Alert severity="error">{error}</Alert>}
       {saved && <Alert severity="success">Az elérhetőségek mentve.</Alert>}
       <Box
@@ -123,7 +123,8 @@ function PatientDetails({
           setError("");
           setSaved(false);
           try {
-            await agent.put("/patients/" + patient.id + "/contact", {
+            await agent.put("/patients/" + patient.id, {
+              name: profile.name, tajNumber: patient.tajNumber, birthDate: profile.birthDate, birthPlace: profile.birthPlace,
               email: contact.email || null,
               phone: contact.phone || null,
               address: contact.address || null,

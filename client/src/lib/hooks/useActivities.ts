@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { subscribeActivitySession, getActivitySessionVersion } from '../api/activitySession';
+import { subscribeActivitySession, getActivitySessionVersion, getActivityToken } from '../api/activitySession';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import agent from "../api/agent";
 import { useLocation } from "react-router";
@@ -7,6 +7,7 @@ import { useLocation } from "react-router";
 export const useActivities = (id?: string) => {
     const queryClient = useQueryClient();
     const sessionVersion = useSyncExternalStore(subscribeActivitySession, getActivitySessionVersion);
+    const authenticated = !!getActivityToken();
     const location = useLocation();
 
     const { isLoading: isPending, data: activities, isError } = useQuery({
@@ -15,7 +16,7 @@ export const useActivities = (id?: string) => {
             const response = await agent.get<Activity[]>('/activities', { signal });
             return response.data;
         },
-        enabled: !id && location.pathname === '/activities'
+        enabled: authenticated && !id && location.pathname === '/activities'
     });
 
     const { isLoading: isLoadingActivity, data: activity } = useQuery<Activity>({
@@ -24,7 +25,7 @@ export const useActivities = (id?: string) => {
             const response = await agent.get<Activity>(`/activities/${id}`, { signal });
             return response.data;
         },
-        enabled: !!id
+        enabled: authenticated && !!id
     });
 
     const updateActivity = useMutation({

@@ -14,10 +14,15 @@ public class AccessService(AppDbContext db, IHttpContextAccessor http)
         (User.IsInRole("Practitioner") && p.PractitionerAccesses.Any(a => a.Practitioner.UserId == UserId)));
     public Task<bool> OwnPatient(string id) => db.Patients.AnyAsync(p => p.Id == id && p.UserId == UserId && User.IsInRole("Patient"));
     public Task<bool> OwnPractitioner(string id) => db.Practitioners.AnyAsync(p => p.Id == id && p.UserId == UserId && User.IsInRole("Practitioner"));
+    public Task<bool> AssignedPatient(string id) => db.Patients.AnyAsync(p => p.Id == id &&
+        User.IsInRole("Practitioner") && p.PractitionerAccesses.Any(a => a.Practitioner.UserId == UserId));
     public IQueryable<Appointment> Appointments() => Staff ? db.Appointments : db.Appointments.Where(a =>
         (User.IsInRole("Patient") && a.Patient.UserId == UserId) ||
         (User.IsInRole("Practitioner") && a.Practitioner.UserId == UserId));
-    public IQueryable<Activity> Activities() => Staff ? db.Activities : db.Activities.Where(a =>
+    public IQueryable<Activity> Activities() => Application.Activities.Queries.ActivityVisibility.For(db, UserId,
+        User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray());
+    // Reading an assigned patient's history does not grant editing of another doctor's events.
+    public IQueryable<Activity> EditableActivities() => Staff ? db.Activities : db.Activities.Where(a =>
         (User.IsInRole("Patient") && a.PatientActivities.Any(p => p.Patient.UserId == UserId)) ||
         (User.IsInRole("Practitioner") && a.ActivityPractitioners.Any(p => p.Practitioner.UserId == UserId)));
 }

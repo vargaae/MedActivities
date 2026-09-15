@@ -14,12 +14,13 @@ import { ToastContainer } from "react-toastify";
 import { store, StoreContext } from "./lib/stores/store.ts";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { hu } from 'date-fns/locale';
 
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={hu}>
       <StoreContext.Provider value={store}>
         <QueryClientProvider client={queryClient}>
           {/* <ReactQueryDevtools /> */}

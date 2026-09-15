@@ -11,6 +11,7 @@ export default function DateTimeInput<T extends FieldValues>(props: Props<T>) {
     return (
         <DateTimePicker
             {...props}
+            format="yyyy.MM.dd. HH:mm"
             value={field.value ? new Date(field.value) : null}
             onChange={value => {
                 field.onChange(new Date(value!));

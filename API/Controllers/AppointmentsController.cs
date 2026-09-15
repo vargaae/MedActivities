@@ -11,7 +11,7 @@ public class AppointmentsController(AppDbContext db,AccessService access,Booking
     public async Task<IActionResult> Slots(string practitionerId,DateOnly date)=>Ok(await booking.Slots(practitionerId,date));
     [HttpGet] public async Task<IActionResult> List()=>Ok(await access.Appointments().OrderBy(a=>a.StartTime).Select(a=>new{a.Id,a.PatientId,a.PractitionerId,a.ActivityId,a.BookingDate,a.StartTime,a.EndTime,a.Status,a.Note}).ToListAsync());
     [HttpPost] public async Task<IActionResult> Create(BookingInput input) {
-        if(!access.Staff && !await access.OwnPatient(input.PatientId))return Forbid();
+        if(!access.Staff && !await access.OwnPatient(input.PatientId) && !await access.AssignedPatient(input.PatientId))return Forbid();
         var a=await booking.Book(input,access.UserId);return StatusCode(201,new{a.Id,a.ActivityId,a.StartTime,a.EndTime});
     }
     [HttpGet("{id}")]

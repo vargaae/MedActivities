@@ -6,6 +6,7 @@ public class Patient
     public string? UserId { get; set; }
     public required string Name { get; set; }
     public DateOnly BirthDate { get; set; }
+    public string? BirthPlace { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? Address { get; set; }

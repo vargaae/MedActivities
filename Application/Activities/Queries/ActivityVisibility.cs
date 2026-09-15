@@ -11,6 +11,7 @@ public static class ActivityVisibility
         var patient = roles.Contains("Patient"); var doctor = roles.Contains("Practitioner");
         return db.Activities.Where(a =>
             (patient && a.PatientActivities.Any(p => p.Patient.UserId == userId)) ||
-            (doctor && a.ActivityPractitioners.Any(p => p.Practitioner.UserId == userId)));
+            (doctor && (a.ActivityPractitioners.Any(p => p.Practitioner.UserId == userId) ||
+                a.PatientActivities.Any(p => p.Patient.PractitionerAccesses.Any(link => link.Practitioner.UserId == userId)))));
     }
 }

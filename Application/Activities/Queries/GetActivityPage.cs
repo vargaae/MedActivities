@@ -23,7 +23,7 @@ public class GetActivityPage
                 .Where(a => request.Category == null || a.Category == request.Category)
                 .Where(a => request.From == null || a.Date >= request.From)
                 .Where(a => request.To == null || a.Date < request.To)
-                .OrderBy(a => a.Date).ThenBy(a => a.Id)
+                .OrderByDescending(a => a.Date).ThenByDescending(a => a.Id)
                 .Skip((request.Page - 1) * 30).Take(31)
                 .Select(ActivityDto.Projection).ToListAsync(ct);
             return new(rows.Take(30).ToList(), rows.Count > 30 ? request.Page + 1 : null);

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 namespace API.Med;
 public record PatientInput([Required, MaxLength(100)] string Name,
-    [Required, RegularExpression(@"^[0-9]{9}$")] string TajNumber, DateOnly BirthDate,
+    [Required, RegularExpression(@"^[0-9]{9}$")] string TajNumber, DateOnly BirthDate, [MaxLength(100)] string? BirthPlace,
     [EmailAddress] string? Email, [MaxLength(40)] string? Phone, [MaxLength(300)] string? Address, [MaxLength(2000)] string? Notes);
 public record PractitionerInput([Required, MaxLength(100)] string Name,
     [Required, RegularExpression(@"^[0-9]{9}$")] string TajNumber,

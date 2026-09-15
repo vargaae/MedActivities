@@ -9,7 +9,7 @@ namespace API.Med;
 [ApiController, Route("api/practitioners"), Authorize]
 public class PractitionersController(AppDbContext db,AccessService access,UserManager<AppUser> users):ControllerBase
 {
-    [HttpGet] public async Task<IActionResult> List()=>Ok(await db.Practitioners.Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).ToListAsync());
+    [HttpGet] public async Task<IActionResult> List()=>Ok(await db.Practitioners.OrderBy(p=>p.Name).ThenBy(p=>p.Id).Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).ToListAsync());
     [HttpGet("{id}")] public async Task<IActionResult> Details(string id) {
         if(access.Staff) { var full=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new{p.Id,p.Name,p.TajNumber,p.UserId,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync(); return full is null?NotFound():Ok(full); }
         var p=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync();
@@ -67,6 +67,6 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
     [HttpGet("{id}/activities")]
     public async Task<IActionResult> Activities(string id) {
         if(!access.Staff && !await access.OwnPractitioner(id))return Forbid();
-        return Ok(await access.Activities().Where(a=>a.ActivityPractitioners.Any(p=>p.PractitionerId==id)).Select(a=>new{a.Id,a.Title,a.Date,a.Status,a.IsCancelled}).ToListAsync());
+        return Ok(await access.Activities().Where(a=>a.ActivityPractitioners.Any(p=>p.PractitionerId==id)).OrderByDescending(a=>a.Date).ThenByDescending(a=>a.Id).Select(a=>new{a.Id,a.Title,a.Date,a.Status,a.IsCancelled}).ToListAsync());
     }
 }

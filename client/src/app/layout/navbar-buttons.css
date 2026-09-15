@@ -12,6 +12,17 @@ html { overflow-y: scroll; }
 .eu-nav-enhanced .eu-nav-action svg { transition: transform .2s ease; }
 .eu-nav-enhanced .eu-nav-action:hover svg, .eu-nav-enhanced .eu-nav-action:focus-visible svg { transform: translateY(-3px) rotate(-7deg); }
 .eu-nav-enhanced .eu-nav-session { margin-left: auto; }
+.eu-nav-practitioner { background: linear-gradient(135deg, #0b7f83, #166f91); }
+.eu-nav-practitioner .eu-nav-action, .eu-nav-practitioner .eu-user-trigger, .eu-nav-practitioner .eu-nav-links { color: #fff; }
+.eu-nav-practitioner .eu-nav-action:hover, .eu-nav-practitioner .eu-nav-action:focus-visible { background: #ffffff1f; border-color: #ffffff40; color: #fff; }
+.eu-nav-practitioner .eu-nav-action.active { background: #ffffff2b; border-color: #ffffff55; color: #fff; }
+.eu-nav-admin { background: linear-gradient(135deg, #263647, #34495e); }
+.eu-nav-admissions { background: linear-gradient(135deg, #1769a8, #2c83bd); }
+.eu-nav-admin .eu-nav-action, .eu-nav-admin .eu-user-trigger, .eu-nav-admin .eu-nav-links,
+.eu-nav-admissions .eu-nav-action, .eu-nav-admissions .eu-user-trigger, .eu-nav-admissions .eu-nav-links { color: #fff; }
+.eu-nav-admin .eu-nav-action:hover, .eu-nav-admin .eu-nav-action:focus-visible,
+.eu-nav-admissions .eu-nav-action:hover, .eu-nav-admissions .eu-nav-action:focus-visible { background: #ffffff1f; border-color: #ffffff40; color: #fff; }
+.eu-nav-admin .eu-nav-action.active, .eu-nav-admissions .eu-nav-action.active { background: #ffffff2b; border-color: #ffffff55; color: #fff; }
 .eu-user-trigger { font: inherit; cursor: pointer; text-align: left; transition: background .2s ease, box-shadow .2s ease; }
 .eu-user-trigger:hover { background: #e2edfc; box-shadow: 0 3px 10px #2356cf16; }
 .eu-user-copy { display: grid; gap: 3px; max-width: 165px; }.eu-user-copy strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }.eu-user-copy small { font-size: 10px; }

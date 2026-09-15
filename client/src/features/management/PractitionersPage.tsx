@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -73,9 +74,10 @@ export default function PractitionersPage() {
         onExited: () => {
           const trigger = dialogTrigger.current;
           dialogTrigger.current = null;
-          const target = trigger?.isConnected && !trigger.disabled
-            ? trigger
-            : searchInput.current;
+          const target =
+            trigger?.isConnected && !trigger.disabled
+              ? trigger
+              : searchInput.current;
           target?.focus({ preventScroll: true });
         },
       },
@@ -95,7 +97,8 @@ export default function PractitionersPage() {
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [search, setSearch] = useState("");
+  const [nameSearch, setNameSearch] = useState("");
+  const [specialtySearch, setSpecialtySearch] = useState("");
   const list = useQuery({
     queryKey: ["practitioners", session.version],
     queryFn: async ({ signal }) =>
@@ -169,26 +172,28 @@ export default function PractitionersPage() {
         Kezelőorvosok – orvosok és egészségügyi szakdolgozók
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <TextField
-        id="practitioner-search"
-        inputRef={searchInput}
-        name="practitionerSearch"
-        label="Keresés név vagy szakterület szerint"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+        <Autocomplete options={list.data ?? []} inputValue={nameSearch} onInputChange={(_, value) => setNameSearch(value)} getOptionLabel={d => d.name}
+          filterOptions={(options, state) => options.filter(d => d.name.toLocaleLowerCase('hu').includes(state.inputValue.toLocaleLowerCase('hu')))}
+          renderInput={params => <TextField {...params} inputRef={searchInput} id="practitioner-name-search" name="practitionerNameSearch" label="Keresés név alapján" />} />
+        <Autocomplete options={[...new Set((list.data ?? []).map(d => d.specialty))].sort((a, b) => a.localeCompare(b, 'hu'))} inputValue={specialtySearch} onInputChange={(_, value) => setSpecialtySearch(value)}
+          renderInput={params => <TextField {...params} id="practitioner-specialty-search" name="practitionerSpecialtySearch" label="Keresés szakterület alapján" />} />
+      </Box>
       {admin && (
-        <Button variant="contained" onClick={(event) => {
-          dialogTrigger.current = event.currentTarget;
-          setForm({ ...blank });
-        }}>
+        <Button
+          variant="contained"
+          onClick={(event) => {
+            dialogTrigger.current = event.currentTarget;
+            setForm({ ...blank });
+          }}
+        >
           Új kezelő
         </Button>
       )}
       {!admin && (
         <Alert severity="info">
           A kezelőorvosok – orvosok és egészségügyi szakdolgozók munkaidejét,
-          eseményeit és adatait megtekintheted.
+          eseményeit és adatait megtekintheti.
         </Alert>
       )}
       {list.isPending && <Typography>Betöltés…</Typography>}
@@ -197,9 +202,7 @@ export default function PractitionersPage() {
       )}
       {list.data
         ?.filter((d) =>
-          `${d.name} ${d.specialty}`
-            .toLocaleLowerCase("hu")
-            .includes(search.toLocaleLowerCase("hu")),
+          d.name.toLocaleLowerCase('hu').includes(nameSearch.toLocaleLowerCase('hu')) && d.specialty.toLocaleLowerCase('hu').includes(specialtySearch.toLocaleLowerCase('hu')),
         )
         .map((d) => (
           <Paper key={d.id} sx={{ p: 2 }}>
@@ -236,10 +239,13 @@ export default function PractitionersPage() {
                 >
                   Szerkesztés
                 </Button>
-                <Button color="error" onClick={(event) => {
-                  dialogTrigger.current = event.currentTarget;
-                  setRemove(d);
-                }}>
+                <Button
+                  color="error"
+                  onClick={(event) => {
+                    dialogTrigger.current = event.currentTarget;
+                    setRemove(d);
+                  }}
+                >
                   Törlés
                 </Button>
               </>
@@ -493,7 +499,11 @@ export default function PractitionersPage() {
           {error && <Alert severity="error">{error}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button data-dialog-initial-focus disabled={busy} onClick={() => setRemove(null)}>
+          <Button
+            data-dialog-initial-focus
+            disabled={busy}
+            onClick={() => setRemove(null)}
+          >
             Mégse
           </Button>
           <Button

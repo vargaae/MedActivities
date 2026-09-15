@@ -12,7 +12,7 @@ public class GetActivityList
             => await ActivityVisibility.For(context, request.UserId, request.Roles)
                 .Where(a => request.PatientId == null || a.PatientActivities.Any(p => p.PatientId == request.PatientId))
                 .Where(a => request.PractitionerId == null || a.ActivityPractitioners.Any(p => p.PractitionerId == request.PractitionerId))
-                .AsNoTracking().OrderBy(a=>a.Date).ThenBy(a=>a.Id)
+                .AsNoTracking().OrderByDescending(a=>a.Date).ThenByDescending(a=>a.Id)
                 .Select(ActivityDto.Projection).ToListAsync(cancellationToken);
     }
 }

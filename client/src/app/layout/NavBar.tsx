@@ -4,7 +4,6 @@ import { Link, NavLink } from "react-router";
 import { Observer } from "mobx-react-lite";
 import { Box, CircularProgress, LinearProgress } from "@mui/material";
 import {
-  AddRounded,
   MenuRounded,
   CloseRounded,
   HomeRounded,
@@ -61,16 +60,6 @@ export default function NavBar() {
       Icon: CalendarMonthRounded,
     },
 
-    ...(session.data?.canCreate
-      ? [
-          {
-            to: "/createActivity",
-            label: "Új esemény",
-            Icon: AddRounded,
-          },
-        ]
-      : []),
-
     ...(staff || effectiveRoles.includes("Practitioner")
       ? [
           {
@@ -107,7 +96,9 @@ export default function NavBar() {
 
   return (
     <>
-      <header className="eu-nav eu-nav-enhanced">
+      <header
+        className={`eu-nav eu-nav-enhanced${session.data?.roles.includes("Admin") ? " eu-nav-admin" : session.data?.roles.includes("AdmissionsOffice") ? " eu-nav-admissions" : session.data?.roles.includes("Practitioner") ? " eu-nav-practitioner" : ""}`}
+      >
         <div className="eu-nav-inner">
           <Link
             to="/"

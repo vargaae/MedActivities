@@ -45,7 +45,7 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         if(dto is null)return NotFound();
         dto.IsAppointment=await db.Appointments.AnyAsync(a=>a.ActivityId==id,ct);
         dto.CanEditFields=Authenticated && (access.Staff || (!dto.IsAppointment &&
-            (User.IsInRole("Patient") || User.IsInRole("Practitioner"))));
+            await access.EditableActivities().AnyAsync(a => a.Id == id, ct)));
         dto.CanDelete=Authenticated && access.Staff;
         dto.CanEditAssignments=dto.CanEditFields && access.Staff;
         return Ok(dto);
@@ -107,6 +107,7 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         var activity=await access.Activities().Include(a=>a.PatientActivities).Include(a=>a.ActivityPractitioners)
             .SingleOrDefaultAsync(a=>a.Id==input.Id,ct);
         if(activity is null)return NotFound();
+        if(!await access.EditableActivities().AnyAsync(a=>a.Id==activity.Id,ct))return Forbid();
         var appointment=await db.Appointments.SingleOrDefaultAsync(a=>a.ActivityId==activity.Id,ct);
         if(appointment is not null && !access.Staff)
             return Conflict(new {message="Foglalási eseménynél itt csak admin/felvételi iroda módosíthat; jelentkezz be megfelelő szerepkörrel."});

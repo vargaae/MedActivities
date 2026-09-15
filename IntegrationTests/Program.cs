@@ -20,15 +20,16 @@ internal static class Program
     {
         var root = Path.GetFullPath(args.FirstOrDefault() ?? Environment.CurrentDirectory);
         try {
-            VerifyApi(root).GetAwaiter().GetResult();
-            VerifyForms(root);
+            var practitionerOnly = args.Contains("--practitioner");
+            VerifyApi(root, practitionerOnly).GetAwaiter().GetResult();
+            if (!practitionerOnly) VerifyForms(root);
             Console.WriteLine($"SUCCESS: {passed} checks passed.");
             return 0;
         } catch (Exception ex) { Console.Error.WriteLine("FAIL: " + ex); return 1; }
     }
     private static void Check(bool condition, string name)
     { if (!condition) throw new InvalidOperationException(name); passed++; Console.WriteLine("PASS: " + name); }
-    private static async Task VerifyApi(string root)
+    private static async Task VerifyApi(string root, bool practitionerOnly = false)
     {
         // Mindig új, egyértelműen teszt nevű adatbázis. Nem fogad el üzemi connection stringet.
         var dbName = "MedActivities_Test_" + Guid.NewGuid().ToString("N");
@@ -101,7 +102,12 @@ internal static class Program
             await Expect(doctor, "GET", "patients/" + p1, null, 404);
             await Expect(patient, "GET", "patients/" + p1, null, 404);
             await Expect(patient, "POST", "patients", PatientInput("Tiltott", "123123123"), 403);
-            await Expect(admin, "PUT", $"patients/{p1}/access/{doctorId}", new {}, 204);
+            Check((await Expect(doctor, "GET", "patients", null, 200))!.AsArray().Count == 0, "Unassigned patients excluded from health-record choices");
+            Check((await Expect(doctor, "GET", "patients/directory", null, 200))!["all"]!.AsArray().Any(p => p!["id"]!.GetValue<string>() == p1), "Practitioner can read unassigned patient directory");
+            await Expect(doctor, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = DateOnly.FromDateTime(DateTime.Today.AddDays(3)), hour = 10 }, 403);
+            await Expect(doctor, "PUT", $"patients/{p1}/access/{doctorId}", new {}, 204);
+            await Expect(doctor, "PUT", $"patients/{p1}/access/{doctorId}", new {}, 204);
+            Check((await Expect(doctor, "GET", "patients", null, 200))!.AsArray().Count == 1, "Self assignment is immediate and idempotent");
             await Expect(doctor, "GET", "patients/" + p1, null, 200);
             await Expect(admin, "PUT", $"practitioners/{doctorId}/booking-enabled", new { bookingEnabled = true }, 204);
             var day = DateOnly.FromDateTime(DateTime.Today.AddDays(3));
@@ -112,6 +118,25 @@ internal static class Program
             await Expect(doctor, "GET", "activities/" + activityId, null, 200);
             Check((await Expect(admin, "GET", $"activities?patientId={p1}&practitionerId={doctorId}", null, 200))!.AsArray().Count == 1, "MediatR patient and practitioner filters combine");
             Check((await Expect(doctor, "GET", $"activities?patientId={p2}", null, 200))!.AsArray().Count == 0, "Filter cannot broaden practitioner access");
+            await Expect(anonymous, "POST", "session/register", new { userName = "otherdoctor", email = "otherdoctor@test.invalid", password = secret, name = "Másik Orvos", role = "Practitioner", tajNumber = "900000003", birthDate = "1980-01-01" }, 201);
+            var otherDoctorId = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray().Single(p => p!["id"]!.GetValue<string>() != doctorId)!["id"]!.GetValue<string>();
+            object HistoryInput(string? id) => new { id, title = "Másik orvos eseménye", date = day.ToDateTime(new TimeOnly(9, 0)), description = "Előzmény", category = "Vizsgálat", city = "Budapest", venue = "Rendelő", patientId = p1, practitionerIds = new[] { otherDoctorId } };
+            var historyId = (await Expect(admin, "POST", "activities", HistoryInput(null), 201))!.GetValue<string>();
+            Check(!(await Expect(doctor, "GET", "activities/" + historyId, null, 200))!["canEditFields"]!.GetValue<bool>(), "Assigned patient's other-doctor event is read only");
+            Check((await Expect(doctor, "GET", $"activities?patientId={p1}", null, 200))!.AsArray().Count == 2, "Assigned patient's full event history is listed");
+            await Expect(doctor, "PUT", "activities", HistoryInput(historyId), 403);
+            if (practitionerOnly)
+            {
+                await Expect(doctor, "POST", "appointments", new { patientId = p2, practitionerId = doctorId, date = day, hour = 10 }, 403);
+                await Expect(doctor, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = day, hour = 10 }, 201);
+                await Expect(doctor, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = day, hour = 11 }, 409);
+                await Expect(admin, "DELETE", $"patients/{p1}/access/{doctorId}", null, 204);
+                await Expect(doctor, "GET", "activities/" + historyId, null, 404);
+                Check((await Expect(doctor, "GET", "patients", null, 200))!.AsArray().Count == 0, "Revocation removes health-record access immediately");
+                return;
+            }
+            await Expect(admin, "DELETE", "activities/" + historyId, null, 204);
+            await Expect(admin, "DELETE", "practitioners/" + otherDoctorId, null, 204);
             await VerifyChat(anonymous, admin, doctor, patient, activityId);
             await Expect(admin, "PUT", "activities", ActivityInput(activityId, "Módosított esemény"), 204);
             await Expect(admin, "DELETE", "patients/" + p1, null, 409);
@@ -140,7 +165,7 @@ internal static class Program
             Check((int)bad.StatusCode == 400, "Wrong document signature rejected");
             await Expect(admin, "DELETE", records + "/documents/" + docId, null, 204);
 
-            var booking = (await Expect(admin, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = day, hour = 10, note = "Megmarad" }, 201))!;
+            var booking = (await Expect(doctor, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = day, hour = 10, note = "Megmarad" }, 201))!;
             var bookingId = booking["id"]!.GetValue<string>();
             await Expect(admin, "POST", "appointments", new { patientId = p2, practitionerId = doctorId, date = day, hour = 10 }, 409);
             await Expect(admin, "POST", "appointments", new { patientId = p1, practitionerId = doctorId, date = day, hour = 11 }, 409);
@@ -329,7 +354,7 @@ internal static class Program
         foreach (var type in new[] { typeof(Form1), typeof(PatientEditForm), typeof(ActivityEditForm), typeof(AppointmentForm), typeof(RecordsForm) })
         {
             using var form = (Form)Activator.CreateInstance(type)!;
-            // A top-level WinForms handle is required for DrawToBitmap to render child controls.
+            // A top-level WinForms handle megadása kötelező for DrawToBitmap to render child controls.
             _ = form.Handle;
             foreach (Control child in form.Controls) _ = child.Handle;
             form.PerformLayout();

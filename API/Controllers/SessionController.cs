@@ -47,7 +47,16 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
         await using var tx=await db.Database.BeginTransactionAsync();
         var user=new AppUser{UserName=input.UserName.Trim(),Email=input.Email.Trim()};
         var result=await users.CreateAsync(user,input.Password);
-        if(!result.Succeeded)return BadRequest(new{message=string.Join(" ",result.Errors.Select(e=>e.Description))});
+        if(!result.Succeeded)return BadRequest(new{message=string.Join(" ",result.Errors.Select(e=>e.Code switch {
+            "DuplicateUserName" => "Ez a felhasználónév már foglalt.",
+            "DuplicateEmail" => "Ez az e-mail-cím már használatban van.",
+            "PasswordTooShort" => "A jelszó túl rövid.",
+            "PasswordRequiresNonAlphanumeric" => "A jelszónak speciális karaktert is tartalmaznia kell.",
+            "PasswordRequiresDigit" => "A jelszónak számot is tartalmaznia kell.",
+            "PasswordRequiresUpper" => "A jelszónak nagybetűt is tartalmaznia kell.",
+            "PasswordRequiresLower" => "A jelszónak kisbetűt is tartalmaznia kell.",
+            _ => e.Description
+        }))});
         MedSetup.Check(await users.AddToRoleAsync(user,input.Role));
         if(input.Role=="Patient")db.Patients.Add(new(){Name=input.Name.Trim(),TajNumber=input.TajNumber,UserId=user.Id,BirthDate=input.BirthDate,Email=input.Email});
         else {var profile=new PractitionerProfile{Name=input.Name.Trim(),TajNumber=input.TajNumber,UserId=user.Id,Specialty=input.Specialty};profile.BookingSettings=new(){PractitionerId=profile.Id};db.Practitioners.Add(profile);}

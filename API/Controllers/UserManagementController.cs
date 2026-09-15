@@ -61,7 +61,17 @@ public class UserManagementController(UserManager<AppUser> users,AppDbContext db
         db.AdmissionsOfficeProfiles.RemoveRange(await db.AdmissionsOfficeProfiles.Where(p=>p.UserId==id).ToListAsync());
         await db.SaveChangesAsync();MedSetup.Check(await users.DeleteAsync(u));await tx.CommitAsync();return NoContent();
     }
-    IActionResult Errors(IdentityResult r)=>BadRequest(new{message=string.Join(" ",r.Errors.Select(e=>e.Description))});
+    IActionResult Errors(IdentityResult r)=>BadRequest(new{message=string.Join(" ",r.Errors.Select(HungarianError))});
+    static string HungarianError(IdentityError error)=>error.Code switch {
+        "DuplicateUserName" => "Ez a felhasználónév már foglalt.",
+        "DuplicateEmail" => "Ez az e-mail-cím már használatban van.",
+        "PasswordTooShort" => "A jelszó túl rövid.",
+        "PasswordRequiresNonAlphanumeric" => "A jelszónak speciális karaktert is tartalmaznia kell.",
+        "PasswordRequiresDigit" => "A jelszónak számot is tartalmaznia kell.",
+        "PasswordRequiresUpper" => "A jelszónak nagybetűt is tartalmaznia kell.",
+        "PasswordRequiresLower" => "A jelszónak kisbetűt is tartalmaznia kell.",
+        _ => error.Description
+    };
     async Task SetStaffProfile(string id,ManagedUserInput input) {
         var admin=await db.AdminProfiles.SingleOrDefaultAsync(p=>p.UserId==id);
         var office=await db.AdmissionsOfficeProfiles.SingleOrDefaultAsync(p=>p.UserId==id);
