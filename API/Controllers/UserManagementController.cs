@@ -19,7 +19,17 @@ public class ManagedUserInput {
 public class UserManagementController(UserManager<AppUser> users,AppDbContext db,AccessService access):ControllerBase {
     [HttpGet]public async Task<IActionResult> List() {
         var result=new List<object>();
-        foreach(var u in await users.Users.OrderBy(u=>u.UserName).ToListAsync())result.Add(new{u.Id,u.UserName,u.Email,name=(await db.AdminProfiles.Where(p=>p.UserId==u.Id).Select(p=>p.Name).FirstOrDefaultAsync()) ?? (await db.AdmissionsOfficeProfiles.Where(p=>p.UserId==u.Id).Select(p=>p.Name).FirstOrDefaultAsync()) ?? u.UserName,roles=await users.GetRolesAsync(u),disabled=await users.IsLockedOutAsync(u)});
+        var profiles = await db.Patients.AsNoTracking().Where(p => p.UserId != null)
+            .Select(p => new { p.UserId, p.Name }).ToListAsync();
+        profiles.AddRange(await db.Practitioners.AsNoTracking().Select(p => new { UserId = (string?)p.UserId, p.Name }).ToListAsync());
+        profiles.AddRange(await db.AdminProfiles.AsNoTracking().Select(p => new { UserId = (string?)p.UserId, p.Name }).ToListAsync());
+        profiles.AddRange(await db.AdmissionsOfficeProfiles.AsNoTracking().Select(p => new { UserId = (string?)p.UserId, p.Name }).ToListAsync());
+        var names = profiles.Where(p => !string.IsNullOrWhiteSpace(p.Name))
+            .GroupBy(p => p.UserId!).ToDictionary(g => g.Key, g => g.First().Name);
+        foreach(var u in await users.Users.OrderBy(u=>u.UserName).ToListAsync())
+            result.Add(new { u.Id, u.UserName, u.Email,
+                name = names.GetValueOrDefault(u.Id) ?? DemoDisplayNames.ForAccount(u.Id) ?? u.UserName,
+                roles = await users.GetRolesAsync(u), disabled = await users.IsLockedOutAsync(u) });
         return Ok(result);
     }
     [HttpPost]public async Task<IActionResult> Create(ManagedUserInput input) {

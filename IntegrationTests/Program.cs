@@ -96,7 +96,8 @@ internal static class Program
             object PatientInput(string name, string taj) => new { name, tajNumber = taj, birthDate = "1990-02-03", email = (string?)null, phone = "123", address = "Budapest", notes = "Teszt" };
             var p1 = (await Expect(admin, "POST", "patients", PatientInput("Teszt Első", "012345678"), 201))!["id"]!.GetValue<string>();
             var p2 = (await Expect(admin, "POST", "patients", PatientInput("Teszt Második", "012345679"), 201))!["id"]!.GetValue<string>();
-            Check((await desktop.Get<List<Patient>>("patients")).Count == 2, "Shared data and multiple nullable UserIds");
+            var p3 = (await Expect(admin, "POST", "patients", PatientInput("Kaszkád törlés teszt", "012345680"), 201))!["id"]!.GetValue<string>();
+            Check((await desktop.Get<List<Patient>>("patients")).Count == 3, "Shared data and multiple nullable UserIds");
             await Expect(admin, "POST", "patients", PatientInput("Duplikált", "012345678"), 409);
             await Expect(admin, "POST", "patients", PatientInput("Hibás TAJ", "abcdefgh9"), 400);
             await Expect(admin, "PUT", "patients/" + p1, PatientInput("Módosított", "012345678"), 204);
@@ -136,6 +137,10 @@ internal static class Program
 
             object ActivityInput(string? id, string title) => new { id, title, date = day.ToDateTime(new TimeOnly(10,0)), description = "Leírás", category = "Vizsgálat", city = "Budapest", venue = "Rendelő", patientId = p1, practitionerIds = new[] { doctorId }, status = "Scheduled" };
             var activityId = (await Expect(admin, "POST", "activities", ActivityInput(null, "Esemény"), 201))!.GetValue<string>();
+            var cascadeActivityId = (await Expect(admin, "POST", "activities", new { id=(string?)null, title="Pácienshez kötött törlés teszt", date=day.ToDateTime(new TimeOnly(11,0)), description="Törlési teszt", category="Vizsgálat", city="Budapest", venue="Rendelő", patientId=p3, practitionerIds=new[] { doctorId }, status="Scheduled" }, 201))!.GetValue<string>();
+            await Expect(admin, "DELETE", "patients/" + p3, null, 204);
+            await Expect(admin, "GET", "patients/" + p3, null, 404);
+            await Expect(admin, "GET", "activities/" + cascadeActivityId, null, 404);
             await Expect(doctor, "GET", "activities/" + activityId, null, 200);
             Check((await Expect(admin, "GET", $"activities?patientId={p1}&practitionerId={doctorId}", null, 200))!.AsArray().Count == 1, "MediatR patient and practitioner filters combine");
             Check((await Expect(doctor, "GET", $"activities?patientId={p2}", null, 200))!.AsArray().Count == 0, "Filter cannot broaden practitioner access");
@@ -157,11 +162,10 @@ internal static class Program
                 Check((await Expect(doctor, "GET", "patients", null, 200))!.AsArray().Count == 0, "Revocation removes health-record access immediately");
                 return;
             }
-            await Expect(admin, "DELETE", "activities/" + historyId, null, 204);
             await Expect(admin, "DELETE", "practitioners/" + otherDoctorId, null, 204);
+            await Expect(admin, "DELETE", "activities/" + historyId, null, 204);
             await VerifyChat(anonymous, admin, doctor, patient, activityId);
             await Expect(admin, "PUT", "activities", ActivityInput(activityId, "Módosított esemény"), 204);
-            await Expect(admin, "DELETE", "patients/" + p1, null, 409);
             await Expect(admin, "DELETE", "activities/" + activityId, null, 204);
 
             var records = $"patients/{p1}/records";
@@ -169,7 +173,6 @@ internal static class Program
             await Expect(patient, "GET", records + "/notes", null, 404);
             await Expect(doctor, "PUT", records + "/notes/" + note, new { text = "Módosított megjegyzés" }, 204);
             Check((await desktop.Get<List<NoteItem>>(records + "/notes")).Single().Text.StartsWith("Módosított"), "SQL note CRUD shared between clients");
-            await Expect(admin, "DELETE", "patients/" + p1, null, 409);
             await Expect(admin, "DELETE", records + "/notes/" + note, null, 204);
             var bytes = Encoding.UTF8.GetBytes("Teszt dokumentum – UTF-8");
             using var upload = new MultipartFormDataContent();

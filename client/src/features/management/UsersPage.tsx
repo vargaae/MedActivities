@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Alert,
   Autocomplete,
+  createFilterOptions,
   Box,
   Button,
   Dialog,
@@ -77,7 +78,11 @@ export default function UsersPage() {
         options={list.data ?? []}
         value={search}
         onChange={(_, value) => setSearch(value)}
-        getOptionLabel={(u) => `${u.userName} – ${u.name}`}
+        getOptionLabel={(u) => u.name?.trim() || u.userName}
+        getOptionKey={(u) => u.id}
+        filterOptions={createFilterOptions<ManagedUser>({
+          stringify: (u) => `${u.name ?? ""} ${u.userName} ${u.email ?? ""}`,
+        })}
         isOptionEqualToValue={(a, b) => a.id === b.id}
         sx={{ maxWidth: 520 }}
         renderInput={(params) => (
@@ -92,7 +97,7 @@ export default function UsersPage() {
         ?.filter((u) => !search || u.id === search.id)
         .map((u) => (
           <Paper sx={{ p: 2 }} key={u.id}>
-            <Typography variant="h6">{u.userName}</Typography>
+            <Typography variant="h6">{u.name?.trim() || u.userName}</Typography>
             <Typography>
               {u.email} · {u.roles.map((r) => roleLabels[r]).join(", ")} ·{" "}
               {u.disabled ? "Letiltva" : "Aktív"}
@@ -212,7 +217,7 @@ export default function UsersPage() {
       >
         <DialogTitle>Felhasználó törlése</DialogTitle>
         <DialogContent>
-          {remove?.userName} végleges törlése? Kapcsolt profillal rendelkező
+          {remove?.name?.trim() || remove?.userName} végleges törlése? Kapcsolt profillal rendelkező
           fióknál használd a letiltást.
           {error && <Alert severity="error">{error}</Alert>}
         </DialogContent>

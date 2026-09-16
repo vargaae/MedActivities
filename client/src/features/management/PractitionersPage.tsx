@@ -17,7 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import agent from "../../lib/api/agent";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
-import { errorText } from "./shared";
+import { errorText, type ManagedUser } from "./shared";
 type Doctor = {
   id: string;
   name: string;
@@ -109,7 +109,7 @@ export default function PractitionersPage() {
     enabled: !!admin,
     queryFn: async ({ signal }) =>
       (
-        await agent.get<{ id: string; userName: string }[]>(
+        await agent.get<ManagedUser[]>(
           "/practitioners/available-accounts",
           { signal },
         )
@@ -352,7 +352,7 @@ export default function PractitionersPage() {
               )}
               {users.data?.map((u) => (
                 <MenuItem key={u.id} value={u.id}>
-                  {u.userName}
+                  {u.name?.trim() || u.userName}
                 </MenuItem>
               ))}
             </TextField>
@@ -538,8 +538,8 @@ export default function PractitionersPage() {
       >
         <DialogTitle>Kezelő törlése</DialogTitle>
         <DialogContent>
-          {remove?.name} törlése? Kapcsolt esemény vagy foglalás esetén a
-          rendszer elutasítja a törlést.
+          {remove?.name} törlése? A kezelő foglalásai és hozzárendelései
+          törlődnek és archiválódnak; a páciens eseményelőzménye megmarad.
           {error && <Alert severity="error">{error}</Alert>}
         </DialogContent>
         <DialogActions>

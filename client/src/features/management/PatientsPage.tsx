@@ -386,7 +386,7 @@ export default function PatientsPage() {
                   ?.filter((u) => u.roles.includes("Patient"))
                   .map((u) => (
                     <MenuItem key={u.id} value={u.id}>
-                      {u.userName}
+                      {u.name?.trim() || u.userName}
                     </MenuItem>
                   ))}
               </TextField>
@@ -502,8 +502,8 @@ export default function PatientsPage() {
       >
         <DialogTitle>Páciens törlése</DialogTitle>
         <DialogContent>
-          {remove?.name} törlése? Eseményhez vagy foglaláshoz kapcsolt páciens
-          nem törölhető.{error && <Alert severity="error">{error}</Alert>}
+          {remove?.name} törlése? A pácienshez tartozó események, foglalások,
+          feljegyzések és dokumentumok archiválva törlődnek.{error && <Alert severity="error">{error}</Alert>}
         </DialogContent>
         <DialogActions>
           <Button disabled={busy} onClick={() => setRemove(null)}>
