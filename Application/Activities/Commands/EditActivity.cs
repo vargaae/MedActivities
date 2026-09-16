@@ -12,7 +12,6 @@ public class EditActivity
             var target=await context.Activities.FindAsync([request.Activity.Id],cancellationToken)
                 ?? throw new Exception("Activity not found");
             var source=request.Activity;
-            // A meglévő űrlap mezői. Kapcsolatok, orvosi megjegyzések és státusz megmaradnak.
             target.Title=source.Title;target.Date=source.Date;target.Description=source.Description;
             target.Category=source.Category;target.City=source.City;target.Venue=source.Venue;
             target.Latitude=source.Latitude;target.Longitude=source.Longitude;

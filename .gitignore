@@ -122,6 +122,13 @@ database/exports/20260915/*
 !database/exports/20260915/MedActivities.mdf
 !database/exports/20260915/MedActivities_log.ldf
 !database/exports/20260915/schema.sql
+!database/exports/20260916/
+database/exports/20260916/*
+!database/exports/20260916/MedActivities.bak
+!database/exports/20260916/MedActivities.sql
+!database/exports/20260916/MedActivities.mdf
+!database/exports/20260916/MedActivities_log.ldf
+!database/exports/20260916/schema.sql
 
 ############################
 

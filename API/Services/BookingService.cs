@@ -13,7 +13,6 @@ public class BookingService(AppDbContext db)
         var now=LocalNow();
         return Enumerable.Range(8,12).Where(h=>new TimeOnly(h,0)>=w.StartTime && new TimeOnly(h+1,0)<=w.EndTime && date.ToDateTime(new TimeOnly(h,0))>now && !used.Any(t=>t.Hour==h)).ToList();
     }
-    // A hívó Activity-tranzakcióján belül fut; a saját foglalás nem ütközik önmagával.
     public async Task Sync(Activity activity,Appointment appointment,DateTime date,string status) {
         var target=status switch {
             "Scheduled"=>AppointmentStatus.Booked,"Cancelled"=>AppointmentStatus.Cancelled,
@@ -44,7 +43,6 @@ public class BookingService(AppDbContext db)
     }
     public async Task<Appointment> Book(BookingInput i,string userId) {
         if(i.Hour<8||i.Hour>19)throw new BookingException("Hibás óra.");
-        // Minden írás ugyanebben a tranzakcióban. Az indexek párhuzamos kéréseknél is védenek.
         await using var tx=await db.Database.BeginTransactionAsync();
         if(!await db.Patients.AnyAsync(p=>p.Id==i.PatientId))throw new BookingException("Nincs ilyen páciens.");
         var practitioner=await db.Practitioners.SingleOrDefaultAsync(p=>p.Id==i.PractitionerId) ?? throw new BookingException("Nincs ilyen kezelő.");

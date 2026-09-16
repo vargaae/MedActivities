@@ -36,8 +36,6 @@ public class ChatHub(IMediator mediator, UserManager<AppUser> users, IWebHostEnv
         var user = await CurrentUser();
         try {
             var comment = await mediator.Send(new ActivityChat.Send(ActivityId, user.Id, Roles, user.UserName ?? "Felhasználó", body), Context.ConnectionAborted);
-            // Only an invalidation signal is broadcast. Every recipient must re-authorize its history read.
-            // A previously joined but subsequently revoked user never receives the message content.
             await Clients.Group(ActivityId).SendAsync("CommentAdded", ActivityId);
             return comment;
         }

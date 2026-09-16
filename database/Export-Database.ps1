@@ -1,8 +1,8 @@
 param(
     [string]$Server = '(localdb)\MSSQLLocalDB',
     [string]$Database = 'MedActivities',
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'exports/20260915'),
-    [string]$SchemaFile = (Join-Path $PSScriptRoot 'exports/20260915/schema.sql')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot ('exports/' + (Get-Date -Format 'yyyyMMdd-HHmmss'))),
+    [string]$SchemaFile = (Join-Path $PSScriptRoot 'exports/20260916/schema.sql')
 )
 $ErrorActionPreference = 'Stop'
 if ($Database -notmatch '^[A-Za-z0-9_]+$') { throw 'Invalid database name' }

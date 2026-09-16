@@ -42,10 +42,33 @@ public class PatientsController(AppDbContext db, AccessService access, UserManag
     [HttpDelete("{id}"), Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> Delete(string id) {
         var p=await db.Patients.FindAsync(id); if(p is null) return NotFound();
-        if(await db.Appointments.AnyAsync(a=>a.PatientId==id) || await db.PatientActivities.AnyAsync(a=>a.PatientId==id) ||
-            await db.PatientNotes.AnyAsync(n=>n.PatientId==id) || await db.PatientDocuments.AnyAsync(d=>d.PatientId==id))
-            return Conflict(new { message = "Eseményhez, foglaláshoz, dokumentumhoz vagy megjegyzéshez kapcsolt páciens nem törölhető." });
-        db.Patients.Remove(p); await db.SaveChangesAsync(); return NoContent();
+        await using var tx=await db.Database.BeginTransactionAsync();
+        // A pácienshez tartozó kapcsolatok és a csak ehhez a pácienshez tartozó
+        // események törlés előtt archiválódnak a SQL Server triggereivel.
+        var links=await db.PatientActivities.Where(a=>a.PatientId==id).ToListAsync();
+        var activityIds=links.Select(a=>a.ActivityId).ToArray();
+        var sharedActivityIds=await db.PatientActivities
+            .Where(a=>activityIds.Contains(a.ActivityId) && a.PatientId!=id)
+            .Select(a=>a.ActivityId).Distinct().ToListAsync();
+        var orphanActivityIds=activityIds.Except(sharedActivityIds).ToArray();
+        var appointments=await db.Appointments.Where(a=>a.PatientId==id).ToListAsync();
+        var notes=await db.PatientNotes.Where(n=>n.PatientId==id).ToListAsync();
+        var documents=await db.PatientDocuments.Where(d=>d.PatientId==id).ToListAsync();
+        var accesses=await db.PatientPractitionerAccesses.Where(a=>a.PatientId==id).ToListAsync();
+        db.Appointments.RemoveRange(appointments);
+        db.PatientActivities.RemoveRange(links);
+        db.PatientNotes.RemoveRange(notes);
+        db.PatientDocuments.RemoveRange(documents);
+        db.PatientPractitionerAccesses.RemoveRange(accesses);
+        if(orphanActivityIds.Length>0)
+            db.Activities.RemoveRange(await db.Activities.Where(a=>orphanActivityIds.Contains(a.Id)).ToListAsync());
+        db.Patients.Remove(p);
+        try { await db.SaveChangesAsync(); await tx.CommitAsync(); return NoContent(); }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message = "A páciens törlése nem hajtható végre. Frissítsd a listát és próbáld újra." }); }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        { return Conflict(new { message = "A páciens törlése nem hajtható végre. Frissítsd a listát és próbáld újra." }); }
+        finally { await tx.DisposeAsync(); }
     }
     [HttpPut("{id}/user"), Authorize(Roles="Admin")]
     public async Task<IActionResult> Link(string id, LinkInput input) {

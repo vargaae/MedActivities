@@ -28,7 +28,6 @@ public class ActivityDto
     public List<ActivityPersonDto> Patients { get; set; } = [];
     public List<ActivityPersonDto> Practitioners { get; set; } = [];
 
-    // Csak a megjelenítéshez szükséges adatokat kérjük le, navigációs körök nélkül.
     public static Expression<Func<Activity, ActivityDto>> Projection => a => new ActivityDto
     {
         Id=a.Id, Title=a.Title, Date=a.Date, Description=a.Description,

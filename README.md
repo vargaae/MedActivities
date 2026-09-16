@@ -35,7 +35,7 @@ Ha a LocalDB-példány még nem létezik, egyszer futtasd a `SqlLocalDB create M
 
 ### 2. A repóhoz mellékelt végleges adatbázis-export
 
-Az aktuális adatbázis 2026. szeptember 15-i exportjai a `database/exports/20260915/` mappában találhatók. A Git figyelmen kívül hagyási szabályai ezeket a konkrét fájlokat engedélyezik. **Klónozáskor csak a már commitolt és feltöltött fájlok érkeznek meg**; a helyi export elkészítése önmagában nem jelent GitHub-feltöltést.
+Az aktuális adatbázis 2026. szeptember 16-i exportjai a `database/exports/20260916/` mappában találhatók. A Git figyelmen kívül hagyási szabályai ezeket a konkrét fájlokat engedélyezik. **Klónozáskor csak a már commitolt és feltöltött fájlok érkeznek meg**; a helyi export elkészítése önmagában nem jelent GitHub-feltöltést.
 
 | Fájl | Tartalom |
 | --- | --- |
@@ -45,7 +45,9 @@ Az aktuális adatbázis 2026. szeptember 15-i exportjai a `database/exports/2026
 | `MedActivities_log.ldf` | Az MDF-hez tartozó naplófájl; az MDF-fel együtt kezelendő. |
 | `schema.sql` | SQL Server-séma; külön önmagában nem tartalmaz üzleti adatokat. |
 
-A pillanatképben **22 páciens, 17 kezelőorvos, 1004 esemény, 6 foglalás és 172 felhasználó** található, a kapcsolatokkal, megjegyzésekkel, dokumentumokkal és archívummal együtt. Az export nem cserélte le és nem generálta újra az adatokat.
+A pillanatképben **23 páciens, 17 kezelőorvos, 952 esemény, 5 foglalás és 173 felhasználó** található, a kapcsolatokkal, megjegyzésekkel, dokumentumokkal és archívummal együtt. Az export nem cserélte le és nem generálta újra az adatokat. A BAK ellenőrzése és az SQL-dump külön tesztadatbázisba történő visszatöltése, valamint a DBCC CHECKDB ellenőrzés sikeres volt. A korábbi szeptember 15-i export megmaradt, de az alábbi telepítés az új mentést használja.
+
+A felhasználók teljes nevének megjelenítését a friss API biztosítja; a profil nélküli generált demófiókokhoz állandó, fiktív magyar megjelenítési nevet rendel. A mentésben a belépési felhasználónevek változatlanok, ezért a javított forráskódot is fel kell tölteni és el kell indítani.
 
 Forrás SQL Server-verzió: **17.0.4025.3** (17-es főverzió). BAK-visszaállításhoz és MDF/LDF csatoláshoz ezzel kompatibilis, azonos vagy újabb SQL Server szükséges. Régebbi szerverhez a SQL-dump kompatibilitását külön ellenőrizni kell.
 
@@ -63,7 +65,7 @@ A visszaállítás csak új `MedActivities` adatbázisra engedélyezett. Meglév
 
 ```powershell
 $ErrorActionPreference = "Stop"
-$backupPath = (Resolve-Path "database/exports/20260915/MedActivities.bak").Path
+$backupPath = (Resolve-Path "database/exports/20260916/MedActivities.bak").Path
 $dataDirectory = Join-Path $env:LOCALAPPDATA "MedActivities/SqlData"
 New-Item -ItemType Directory -Force -Path $dataDirectory | Out-Null
 $masterConnection = [System.Data.SqlClient.SqlConnection]::new(
@@ -106,10 +108,10 @@ Ez a példa helyi LocalDB-re készült. Külön SQL Server-szolgáltatás eseté
 **Ha teljes SQL-dumpot kaptál BAK helyett:** a fenti visszaállítást hagyd ki, és kizárólag üres céladatbázison futtasd:
 
 ```powershell
-if (!(Test-Path "database/exports/20260915/MedActivities.sql")) { throw "Hiányzik a teljes SQL-dump." }
+if (!(Test-Path "database/exports/20260916/MedActivities.sql")) { throw "Hiányzik a teljes SQL-dump." }
 sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -d master -Q "IF DB_ID(N'MedActivities') IS NOT NULL THROW 51000, 'A celadatbazis mar letezik.', 1; CREATE DATABASE [MedActivities];"
 if ($LASTEXITCODE -ne 0) { throw "Az üres céladatbázis létrehozása sikertelen." }
-sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -f 65001 -d MedActivities -i "database/exports/20260915/MedActivities.sql"
+sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -f 65001 -d MedActivities -i "database/exports/20260916/MedActivities.sql"
 if ($LASTEXITCODE -ne 0) { throw "Az adatimport sikertelen; ne folytasd az API indításával." }
 ```
 
@@ -133,7 +135,7 @@ if ($LASTEXITCODE -ne 0) { throw "A migráció sikertelen." }
 sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -b -d MedActivities -Q "SELECT 'Patients' AS Tabla, COUNT(*) AS Darab FROM Patients UNION ALL SELECT 'Practitioners', COUNT(*) FROM Practitioners UNION ALL SELECT 'Activities', COUNT(*) FROM Activities; SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId;"
 ```
 
-A migráció a sémát frissíti, **nem tölti vissza a bemutatóadatokat**. Az ellenőrző lekérdezésben az export visszaállítása után 22 páciens, 17 kezelőorvos és 1004 esemény várható, amíg nem történik újabb adatmódosítás.
+A migráció a sémát frissíti, **nem tölti vissza a bemutatóadatokat**. Az ellenőrző lekérdezésben az export visszaállítása után 23 páciens, 17 kezelőorvos és 952 esemény várható, amíg nem történik újabb adatmódosítás.
 
 A desktophoz szükséges jelszavas helyi demóadmin beállítása:
 
@@ -305,7 +307,7 @@ Ez konzolos tesztprogram, nem `dotnet test` projekt. Külön `MedActivities_Test
 
 A legutóbbi ellenőrzések során az API-fordítás, a frontend TypeScript-ellenőrzése, az érintett fájlok lintellenőrzése és a dátumtesztek sikeresek voltak. SQL Serveren működött az önmagához rendelés, a hozzárendelt páciens eseménytörténetének lekérése és az orvosi foglalás.
 
-**Nyitott ellenőrzési pont:** az integrációs futás eseménytörlésnél, illetve kezelői hozzáférés visszavonásánál 500-as hibát jelzett. A teljes tesztcsomag sikeressége ezért nem állítható. A build a `SQLitePCLRaw.lib.e_sqlite3 2.1.11` csomagra NU1903 biztonsági figyelmeztetést is ad. Ezeket a végleges átadás előtt rendezni és újratesztelni kell.
+**Törlési javítás:** az SQL Serveres EF-modell minden triggeres tábláján letiltottuk a közvetlen OUTPUT használatát, a törlési archívum megtartásával. A `ConfigureTriggerCompatibleWrites` migráció csak modellkonfigurációt rögzít, üzleti táblát vagy adatot nem módosít. A fordítás és 15 adatmodell-regressziós ellenőrzés sikeres (`dotnet run --project IntegrationTests/IntegrationTests.csproj --no-build -- . --model-only`). A tényleges törlés és hozzáférés-visszavonás újratesztelése még szükséges: a legutóbbi futtatási kísérletet a LocalDB indítási hibája akadályozta. Telepítéskor futtasd a fenti migrációs parancsot és indítsd újra az API-t; a meglévő exportok visszaállítása után is ez a teendő. A build a `SQLitePCLRaw.lib.e_sqlite3 2.1.11` csomagra továbbra is NU1903 biztonsági figyelmeztetést ad.
 
 ## Hibaelhárítás
 
@@ -322,7 +324,7 @@ A legutóbbi ellenőrzések során az API-fordítás, a frontend TypeScript-elle
 
 ## Beadási csomag és bemutatás
 
-A beadás része legyen a forráskód, ez a README, a projekt- és solutionfájlok, migrációk, csomagzárak, valamint **a `database/exports/20260915` mappa végleges adatbázis-exportjai**. Ne csomagolj `node_modules`, `bin`, `obj`, `.vs` vagy titkos konfigurációs fájlokat.
+A beadás része legyen a forráskód, ez a README, a projekt- és solutionfájlok, migrációk, csomagzárak, valamint **a `database/exports/20260916` mappa végleges adatbázis-exportjai**. Ne csomagolj `node_modules`, `bin`, `obj`, `.vs` vagy titkos konfigurációs fájlokat.
 
 A bemutató előtt új gépen ellenőrizd a visszaállítást, a négy webes szerepkört, az orvosi hozzárendelést és foglalást, a desktop belépést és közös adatait, valamint a Designer megnyitását. A dokumentáció nem helyettesíti ezt a telepítési próbát.
 

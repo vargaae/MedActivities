@@ -45,8 +45,6 @@ public static class DemoDataSeeder
             var patientCount = Math.Max(1, PatientCount - existingPatients.Count(id => !id.StartsWith(Prefix, StringComparison.Ordinal)));
             var practitionerCount = Math.Max(1, PractitionerCount - existingDoctors.Count(id => !id.StartsWith(Prefix, StringComparison.Ordinal)));
             var activityCount = Math.Max(1, ActivityCount - existingEvents.Count(id => !id.StartsWith(Prefix, StringComparison.Ordinal)));
-            var familyNames = new[] { "Minta", "Teszt", "Példa", "Próba", "Demó", "Mintás", "Próbás", "Példás", "Tesztelő", "Bemutató" };
-            var givenNames = new[] { "Anna", "Péter", "Júlia", "Gábor", "Eszter", "Tamás", "Dóra", "Márton", "Katalin", "Ádám" };
             var locations = new[] {
                 ("Budapest", 47.4979, 19.0402), ("Debrecen", 47.5316, 21.6273),
                 ("Szeged", 46.2530, 20.1414), ("Pécs", 46.0727, 18.2323),
@@ -63,7 +61,7 @@ public static class DemoDataSeeder
                 var location = locations[i % locations.Length];
                 db.Patients.Add(new Patient {
                     Id = id, UserId = userId,
-                    Name = $"{familyNames[i / 10]} {givenNames[i % 10]} (demó {i + 1:000})",
+                    Name = DemoDisplayNames.GeneratedName(i + 1, false),
                     TajNumber = TestTaj(91000000 + i),
                     BirthDate = new DateOnly(1945 + i % 60, 1 + i % 12, 1 + i % 27),
                     Email = $"patient{i + 1:000}@demo.example.invalid",
@@ -79,7 +77,7 @@ public static class DemoDataSeeder
                 var location = locations[i % locations.Length];
                 db.Practitioners.Add(new PractitionerProfile {
                     Id = id, UserId = userId,
-                    Name = $"Dr. {familyNames[i / 10]} {givenNames[i % 10]} (demó {i + 1:000})",
+                    Name = DemoDisplayNames.GeneratedName(i + 1, true),
                     TajNumber = TestTaj(92000000 + i), Specialty = specialties[i % specialties.Length],
                     City = location.Item1, Venue = $"EgészségÚt demórendelő {i + 1:000}"
                 });

@@ -21,7 +21,6 @@ public class AccessService(AppDbContext db, IHttpContextAccessor http)
         (User.IsInRole("Practitioner") && a.Practitioner.UserId == UserId));
     public IQueryable<Activity> Activities() => Application.Activities.Queries.ActivityVisibility.For(db, UserId,
         User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray());
-    // Reading an assigned patient's history does not grant editing of another doctor's events.
     public IQueryable<Activity> EditableActivities() => Staff ? db.Activities : db.Activities.Where(a =>
         (User.IsInRole("Patient") && a.PatientActivities.Any(p => p.Patient.UserId == UserId)) ||
         (User.IsInRole("Practitioner") && a.ActivityPractitioners.Any(p => p.Practitioner.UserId == UserId)));
