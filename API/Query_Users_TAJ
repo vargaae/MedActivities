@@ -1,0 +1,8 @@
+SELECT
+    u.UserName AS Felhasznalonev,
+    COALESCE(p.Name, d.Name) AS TeljesNev,
+    COALESCE(p.TajNumber, d.TajNumber) AS TajSzam
+FROM dbo.AspNetUsers AS u
+LEFT JOIN dbo.Patients AS p ON p.UserId = u.Id
+LEFT JOIN dbo.Practitioners AS d ON d.UserId = u.Id
+ORDER BY TeljesNev, Felhasznalonev;

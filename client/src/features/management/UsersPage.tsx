@@ -9,8 +9,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
   Paper,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -35,11 +37,16 @@ export default function UsersPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState<ManagedUser | null>(null);
+  const [showDisabled, setShowDisabled] = useState(false);
   const list = useQuery({
     queryKey: ["users", session.version],
     queryFn: async ({ signal }) =>
       (await agent.get<ManagedUser[]>("/user-management", { signal })).data,
   });
+  const visibleUsers = (list.data ?? []).filter(
+    (user) => showDisabled || !user.disabled,
+  );
+  const selectedUser = visibleUsers.find((user) => user.id === search?.id) ?? null;
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -74,9 +81,22 @@ export default function UsersPage() {
       {list.isError && (
         <Alert severity="error">A felhasználók nem tölthetők be.</Alert>
       )}
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showDisabled}
+            onChange={(_, checked) => {
+              setShowDisabled(checked);
+              if (!checked && list.data?.some((u) => u.id === search?.id && u.disabled))
+                setSearch(null);
+            }}
+          />
+        }
+        label="Letiltott fiókok megjelenítése"
+      />
       <Autocomplete
-        options={list.data ?? []}
-        value={search}
+        options={visibleUsers}
+        value={selectedUser}
         onChange={(_, value) => setSearch(value)}
         getOptionLabel={(u) => u.name?.trim() || u.userName}
         getOptionKey={(u) => u.id}
@@ -93,8 +113,13 @@ export default function UsersPage() {
           />
         )}
       />
-      {list.data
-        ?.filter((u) => !search || u.id === search.id)
+      {list.isSuccess && visibleUsers.length === 0 && (
+        <Typography color="text.secondary">
+          {showDisabled ? "Nincs megjeleníthető felhasználó." : "Nincs aktív felhasználó. A letiltott fiókokhoz kapcsold be a megjelenítést."}
+        </Typography>
+      )}
+      {visibleUsers
+        .filter((u) => !selectedUser || u.id === selectedUser.id)
         .map((u) => (
           <Paper sx={{ p: 2 }} key={u.id}>
             <Typography variant="h6">{u.name?.trim() || u.userName}</Typography>
