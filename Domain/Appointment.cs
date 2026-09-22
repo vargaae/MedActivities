@@ -13,6 +13,7 @@ public class Appointment
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Booked;
+    public bool PractitionerConfirmed { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? Note { get; set; }
 }

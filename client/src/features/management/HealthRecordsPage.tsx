@@ -8,7 +8,8 @@ import {
   Typography,
 } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 import agent from "../../lib/api/agent";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import PatientRecordsPanel from "./PatientRecordsPanel";
@@ -30,7 +31,9 @@ type Patient = {
 };
 export default function HealthRecordsPage() {
   const session = useActivityAccess();
-  const [id, setId] = useState("");
+  const [params, setParams] = useSearchParams();
+  const id = params.get("patientId") ?? "";
+  const setId = (value: string) => setParams({ patientId: value });
   const patients = useQuery({
     queryKey: ["health-patients", session.version],
     queryFn: async ({ signal }) =>
@@ -39,7 +42,7 @@ export default function HealthRecordsPage() {
   const practitioner = session.data?.roles.includes("Practitioner") ?? false;
   const availablePatients = patients.data ?? [];
   const selected =
-    availablePatients.find((p) => p.id === id) ?? availablePatients[0];
+    id ? availablePatients.find((p) => p.id === id) : availablePatients[0];
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -51,6 +54,7 @@ export default function HealthRecordsPage() {
       {patients.isError && (
         <Alert severity="error">Az adatlapok nem tölthetők be.</Alert>
       )}
+      {patients.isSuccess && id && !selected && <Alert severity="warning">Az adatlap már nem érhető el, vagy nincs hozzáférésed.</Alert>}
       {patients.data?.length === 0 && (
         <Alert severity="info">
           Nincs a fiókodhoz kapcsolt vagy számodra hozzáférhető páciens.
@@ -219,7 +223,8 @@ function PatientDetails({
       {events.data?.length === 0 && (
         <Typography>Nincs kapcsolt esemény.</Typography>
       )}
-      {events.data?.map((a) => (
+      <PaginatedList label="Betegút eseményei" items={events.data ?? []}>
+      {(a) => (
         <Button
           key={a.id}
           component={Link}
@@ -228,7 +233,8 @@ function PatientDetails({
         >
           {a.date.replace("T", " ")} · {a.title}
         </Button>
-      ))}
+      )}
+      </PaginatedList>
       <PatientRecordsPanel patientId={patient.id} />
     </Box>
   );

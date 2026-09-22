@@ -11,7 +11,7 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
 {
     [HttpGet] public async Task<IActionResult> List()=>Ok(await db.Practitioners.OrderBy(p=>p.Name).ThenBy(p=>p.Id).Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).ToListAsync());
     [HttpGet("{id}")] public async Task<IActionResult> Details(string id) {
-        if(access.Staff) { var full=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new{p.Id,p.Name,p.TajNumber,p.UserId,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync(); return full is null?NotFound():Ok(full); }
+        if(access.Staff || await access.OwnPractitioner(id)) { var full=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new{p.Id,p.Name,p.TajNumber,p.UserId,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync(); return full is null?NotFound():Ok(full); }
         var p=await db.Practitioners.Where(p=>p.Id==id).Select(p=>new {p.Id,p.Name,p.Specialty,p.City,p.Venue,BookingEnabled=p.BookingSettings!=null && p.BookingSettings.BookingEnabled}).FirstOrDefaultAsync();
         return p is null?NotFound():Ok(p);
     }
@@ -24,9 +24,10 @@ public class PractitionersController(AppDbContext db,AccessService access,UserMa
         p.BookingSettings=new(){PractitionerId=p.Id}; db.Practitioners.Add(p); await db.SaveChangesAsync();
         return CreatedAtAction(nameof(Details),new{id=p.Id},new{p.Id});
     }
-    [HttpPut("{id}"),Authorize(Roles="Admin")]
+    [HttpPut("{id}")]
     public async Task<IActionResult> Edit(string id,PractitionerInput i) {
         var p=await db.Practitioners.FindAsync(id); if(p is null) return NotFound();
+        if(!access.Staff && !await access.OwnPractitioner(id)) return Forbid();
         if(i.UserId!=p.UserId) return BadRequest("A kezelőorvos felhasználói kapcsolata nem módosítható.");
         if (await db.Practitioners.AnyAsync(p => p.Id != id && p.TajNumber == i.TajNumber)) return Conflict(new { message = "Ez a TAJ-szám már másik kezelőorvoshoz tartozik." });
         p.Name=i.Name.Trim();p.TajNumber=i.TajNumber;p.Specialty=i.Specialty;p.City=i.City;p.Venue=i.Venue;

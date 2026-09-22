@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 import {
   Alert,
   Box,
@@ -23,6 +24,7 @@ type Appointment = {
   status: number;
   patientId: string;
   practitionerId: string;
+  practitionerConfirmed: boolean;
 };
 export default function MedBookingPage() {
   const session = useActivityAccess();
@@ -68,6 +70,15 @@ function BookingEditor({ version }: { version: number }) {
     queryFn: async ({ signal }) =>
       (await agent.get<Appointment[]>("/appointments", { signal })).data,
   });
+  const ownPractitionerId = session.data?.ownPractitioner?.id;
+  useEffect(() => {
+    if (!session.data?.isPractitioner || !ownPractitionerId || !people.data?.doctors) return;
+    setPractitionerId((current) =>
+      current && people.data!.doctors.some((doctor) => doctor.id === current)
+        ? current
+        : ownPractitionerId,
+    );
+  }, [session.data?.isPractitioner, ownPractitionerId, people.data?.doctors]);
   const validAppointments = (appointments.data ?? []).filter(
     (appointment): appointment is Appointment =>
       Boolean(appointment?.id && appointment.startTime),
@@ -122,7 +133,20 @@ function BookingEditor({ version }: { version: number }) {
     },
     onSuccess: refresh,
   });
-  const busy = book.isPending || cancel.isPending;
+  const confirm = useMutation({
+    mutationFn: async (id: string) => {
+      await agent.post(`/appointments/${id}/confirm-practitioner`);
+    },
+    onSuccess: async () => {
+      setMessage("Az időpontfoglalást megerősítetted.");
+      await refresh();
+    },
+    onError: (error) => setMessage(errorText(error)),
+  });
+  const busy = book.isPending || cancel.isPending || confirm.isPending;
+  const doctorOptions = [...(people.data?.doctors ?? [])].sort((a, b) =>
+    Number(b.id === ownPractitionerId) - Number(a.id === ownPractitionerId),
+  );
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       {people.isError || appointments.isError ? (
@@ -171,7 +195,7 @@ function BookingEditor({ version }: { version: number }) {
           <PersonSearch
             label="Kezelőorvos keresése"
             options={
-              people.data?.doctors.map((d) => ({
+              doctorOptions.map((d) => ({
                 ...d,
                 name:
                   d.name +
@@ -184,6 +208,11 @@ function BookingEditor({ version }: { version: number }) {
               setMessage("");
             }}
           />
+          {session.data?.isPractitioner && practitionerId && ownPractitionerId && practitionerId !== ownPractitionerId && (
+            <Alert severity="info">
+              Kolléga kiválasztásakor a foglalás függőben marad, amíg a választott kezelőorvos meg nem erősíti.
+            </Alert>
+          )}
           {session.data?.isPractitioner &&
             people.data?.patients.length === 0 && (
               <Alert severity="info">
@@ -250,11 +279,14 @@ function BookingEditor({ version }: { version: number }) {
       {validAppointments.length === 0 && (
         <Typography>Nincs foglalás.</Typography>
       )}
-      {validAppointments.map((a) => (
+      <PaginatedList label="Foglalások" items={validAppointments}>
+      {(a) => (
         <Paper variant="outlined" key={a.id} sx={{ p: 2 }}>
           <Typography>
             {a.startTime.replace("T", " ")} –{" "}
-            {statusLabels[a.status] ?? "Ismeretlen állapot"}
+            {!a.practitionerConfirmed
+              ? "Kolléga megerősítésére vár"
+              : statusLabels[a.status] ?? "Ismeretlen állapot"}
           </Typography>
           <Typography>
             {people.data?.patients.find((p) => p.id === a.patientId)?.name} ·{" "}
@@ -276,6 +308,16 @@ function BookingEditor({ version }: { version: number }) {
             canDelete={!!session.data?.canAssign}
             refresh={refresh}
           />
+          {!a.practitionerConfirmed && ownPractitionerId === a.practitionerId && (
+            <Button
+              variant="contained"
+              color="success"
+              disabled={busy}
+              onClick={() => confirm.mutate(a.id)}
+            >
+              Időpont megerősítése
+            </Button>
+          )}
           {a.status === 0 && new Date(a.startTime).getTime() > now && (
             <Button
               color="warning"
@@ -286,7 +328,8 @@ function BookingEditor({ version }: { version: number }) {
             </Button>
           )}
         </Paper>
-      ))}
+      )}
+      </PaginatedList>
     </Box>
   );
 }

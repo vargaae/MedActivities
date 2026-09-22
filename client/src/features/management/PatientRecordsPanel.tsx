@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 import {
   Alert,
   Box,
@@ -36,6 +38,8 @@ export default function PatientRecordsPanel({
   patientId: string;
 }) {
   const session = useActivityAccess();
+  const [params] = useSearchParams();
+  const target = params.get("target");
   const cache = useQueryClient();
   const url = "/patients/" + patientId + "/records";
   const [error, setError] = useState("");
@@ -87,7 +91,7 @@ export default function PatientRecordsPanel({
   return (
     <Box sx={{ display: "grid", gap: 2, mt: 2 }}>
       {error && <Alert severity="error">{error}</Alert>}
-      <Typography variant="h6">Dokumentumok</Typography>
+      <Typography id="documents" variant="h6">Dokumentumok</Typography>
       <Box
         component="form"
         sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}
@@ -142,8 +146,9 @@ export default function PatientRecordsPanel({
       {documents.data?.length === 0 && (
         <Typography>Nincs dokumentum.</Typography>
       )}
-      {documents.data?.map((d) => (
-        <Paper variant="outlined" key={d.id} sx={{ p: 2 }}>
+      <PaginatedList key={`documents-${patientId}`} label="Dokumentumok" items={documents.data ?? []} focusId={target}>
+      {(d) => (
+        <Paper variant="outlined" key={d.id} sx={{ p: 2, bgcolor: d.id === target ? "action.selected" : undefined }}>
           <Typography fontWeight={600}>{d.title}</Typography>
           <Typography variant="body2">
             {d.fileName} · {Math.ceil(d.size / 1024)} KB
@@ -166,8 +171,9 @@ export default function PatientRecordsPanel({
             </>
           )}
         </Paper>
-      ))}
-      <Typography variant="h6">Megjegyzések</Typography>
+      )}
+      </PaginatedList>
+      <Typography id="notes" variant="h6">Megjegyzések</Typography>
       <Box
         component="form"
         onSubmit={(e) => {
@@ -205,8 +211,9 @@ export default function PatientRecordsPanel({
         <Alert severity="error">A megjegyzések nem tölthetők be.</Alert>
       )}
       {notes.data?.length === 0 && <Typography>Nincs megjegyzés.</Typography>}
-      {notes.data?.map((n) => (
-        <Paper variant="outlined" key={n.id} sx={{ p: 2 }}>
+      <PaginatedList key={`notes-${patientId}`} label="Megjegyzések" items={notes.data ?? []} focusId={target}>
+      {(n) => (
+        <Paper variant="outlined" key={n.id} sx={{ p: 2, bgcolor: n.id === target ? "action.selected" : undefined }}>
           <Typography sx={{ whiteSpace: "pre-wrap" }}>{n.text}</Typography>
           <Typography variant="caption">
             {n.author} · {new Date(n.createdAt).toLocaleString("hu-HU")}
@@ -229,7 +236,8 @@ export default function PatientRecordsPanel({
             </Box>
           )}
         </Paper>
-      ))}
+      )}
+      </PaginatedList>
       <Dialog
         open={!!rename}
         onClose={() => {

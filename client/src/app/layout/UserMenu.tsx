@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
+import { useUnreadNotifications } from "../../lib/hooks/useNotifications";
 import {
   Avatar,
+  Badge,
   Box,
   Button,
   Divider,
@@ -14,9 +17,12 @@ import {
   AccountCircleRounded,
   Logout,
   ManageAccountsRounded,
+  NotificationsNone,
+  Person,
 } from "@mui/icons-material";
 import { Link } from "react-router";
 import { useAccount } from "../../lib/hooks/useAccount";
+import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 
 const roleLabels: Record<string, string> = {
   Admin: "ADMIN",
@@ -27,6 +33,16 @@ const roleLabels: Record<string, string> = {
 
 export default function UserMenu() {
   const { currentUser, logoutUser } = useAccount();
+  const access = useActivityAccess();
+  const notifications = useUnreadNotifications();
+  const unreadCount = notifications.data?.unreadCount ?? 0;
+  const announced = useRef<{ userId: string; count: number } | null>(null);
+  useEffect(() => {
+    if (!currentUser || !notifications.data) return;
+    if (unreadCount > 0 && (announced.current?.userId !== currentUser.id || unreadCount > announced.current.count))
+      toast.info(`${unreadCount} olvasatlan értesítésed van. A profilmenüben megnyithatod őket.`, { toastId: "unread-notifications" });
+    announced.current = { userId: currentUser.id, count: unreadCount };
+  }, [currentUser, notifications.data, unreadCount]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const roles = currentUser?.roles ?? [];
@@ -50,9 +66,11 @@ export default function UserMenu() {
         aria-controls={open ? "basic-menu" : undefined}
         aria-haspopup="true"
         aria-expanded={open ? "true" : undefined}
+        aria-label={`Profilmenü, ${unreadCount} olvasatlan értesítés`}
         sx={{ fontSize: "0.9rem", textTransform: "none", minWidth: 0 }}
       >
         <Box display="flex" alignItems="center" gap={1.25}>
+          <Badge badgeContent={unreadCount} max={99} color="error" overlap="circular">
           <Avatar
             src={currentUser?.imageUrl}
             alt="Bejelentkezett felhasználó képe"
@@ -60,6 +78,7 @@ export default function UserMenu() {
           >
             <AccountCircleRounded />
           </Avatar>
+          </Badge>
           <Box
             component="span"
             sx={{ display: { xs: "none", sm: "block" }, textAlign: "left" }}
@@ -83,6 +102,20 @@ export default function UserMenu() {
         onClose={handleClose}
         slotProps={{ list: { "aria-labelledby": "basic-button" } }}
       >
+        <MenuItem component={Link} to="/notifications" onClick={handleClose}>
+          <ListItemIcon><Badge badgeContent={unreadCount} color="error" max={99}><NotificationsNone /></Badge></ListItemIcon>
+          <ListItemText>Értesítések</ListItemText>
+        </MenuItem>
+        {access.data?.isPractitioner && access.data.ownPractitioner && (
+          <MenuItem
+            component={Link}
+            to={`/practitioners?practitionerId=${encodeURIComponent(access.data.ownPractitioner.id)}&edit=1`}
+            onClick={handleClose}
+          >
+            <ListItemIcon><Person /></ListItemIcon>
+            <ListItemText>Saját profil szerkesztése</ListItemText>
+          </MenuItem>
+        )}
         {currentUser?.canCreate && (
           <MenuItem component={Link} to="/createActivity" onClick={handleClose}>
             <ListItemIcon>

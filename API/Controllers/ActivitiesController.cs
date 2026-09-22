@@ -28,13 +28,33 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
 
     [HttpGet("page"), Authorize]
     public async Task<IActionResult> GetPage(CancellationToken ct, int page = 1, string? patientId = null,
-        string? practitionerId = null, string? category = null, DateTime? from = null, DateTime? to = null)
+        string? practitionerId = null, string? category = null, DateTime? from = null, DateTime? to = null, int pageSize = 30)
     {
-        if (page < 1 || page > 100000 || (from.HasValue && to.HasValue && from >= to))
+        if (page < 1 || page > 100000 || pageSize < 1 || pageSize > 100 || (from.HasValue && to.HasValue && from >= to))
             return BadRequest(new { message = "Érvénytelen lap vagy dátumtartomány." });
         return Ok(await mediator.Send(new GetActivityPage.Query(access.UserId,
             User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToArray(),
-            page, patientId, practitionerId, category, from, to), ct));
+            page, patientId, practitionerId, category, from, to, pageSize), ct));
+    }
+
+    [HttpGet("{id}/comments"), Authorize]
+    public async Task<IActionResult> Comments(string id, CancellationToken ct, int page = 1, int pageSize = 10, string? commentId = null)
+    {
+        if (page < 1 || page > 100000 || pageSize < 1 || pageSize > 100) return BadRequest();
+        if (!await access.Activities().AnyAsync(a => a.Id == id, ct)) return NotFound();
+        var query = db.ActivityComments.AsNoTracking().Where(c => c.ActivityId == id);
+        var totalCount = await query.CountAsync(ct);
+        if (commentId is not null)
+        {
+            var target = await query.SingleOrDefaultAsync(c => c.Id == commentId, ct);
+            if (target is not null)
+                page = await query.CountAsync(c => c.CreatedAt > target.CreatedAt ||
+                    (c.CreatedAt == target.CreatedAt && string.Compare(c.Id, target.Id) > 0), ct) / pageSize + 1;
+        }
+        page = Math.Min(page, Math.Max(1, (int)Math.Ceiling((double)totalCount / pageSize)));
+        return Ok(new { totalCount, page, items = await query.OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(c => new { c.Id, c.DisplayName, c.Body, c.CreatedAt }).ToListAsync(ct) });
     }
 
     [HttpGet("{id}"), AllowAnonymous]

@@ -9,7 +9,7 @@ public class AppointmentsController(AppDbContext db,AccessService access,Booking
 {
     [HttpGet("slots")]
     public async Task<IActionResult> Slots(string practitionerId,DateOnly date)=>Ok(await booking.Slots(practitionerId,date));
-    [HttpGet] public async Task<IActionResult> List()=>Ok(await access.Appointments().OrderBy(a=>a.StartTime).Select(a=>new{a.Id,a.PatientId,a.PractitionerId,a.ActivityId,a.BookingDate,a.StartTime,a.EndTime,a.Status,a.Note}).ToListAsync());
+    [HttpGet] public async Task<IActionResult> List()=>Ok(await access.Appointments().OrderBy(a=>a.StartTime).Select(a=>new{a.Id,a.PatientId,a.PractitionerId,a.ActivityId,a.BookingDate,a.StartTime,a.EndTime,a.Status,a.Note,a.PractitionerConfirmed}).ToListAsync());
     [HttpPost] public async Task<IActionResult> Create(BookingInput input) {
         if(!access.Staff && !await access.OwnPatient(input.PatientId) && !await access.AssignedPatient(input.PatientId))return Forbid();
         var a=await booking.Book(input,access.UserId);return StatusCode(201,new{a.Id,a.ActivityId,a.StartTime,a.EndTime});
@@ -17,7 +17,7 @@ public class AppointmentsController(AppDbContext db,AccessService access,Booking
     [HttpGet("{id}")]
     public async Task<IActionResult> Details(string id) {
         var result=await access.Appointments().AsNoTracking().Where(a=>a.Id==id)
-            .Select(a=>new{a.Id,a.PatientId,a.PractitionerId,a.ActivityId,a.BookingDate,a.StartTime,a.EndTime,a.Status,a.Note}).SingleOrDefaultAsync();
+            .Select(a=>new{a.Id,a.PatientId,a.PractitionerId,a.ActivityId,a.BookingDate,a.StartTime,a.EndTime,a.Status,a.Note,a.PractitionerConfirmed}).SingleOrDefaultAsync();
         return result is null?NotFound():Ok(result);
     }
     [HttpPut("{id}")]
@@ -41,6 +41,20 @@ public class AppointmentsController(AppDbContext db,AccessService access,Booking
         await booking.Sync(a.Activity,a,a.StartTime,input.Status);
         a.Activity.UpdatedAt=DateTime.UtcNow;a.Activity.UpdatedByUserId=access.UserId;
         await db.SaveChangesAsync();await tx.CommitAsync();return NoContent();
+    }
+
+    [HttpPost("{id}/confirm-practitioner"),Authorize(Roles="Practitioner")]
+    public async Task<IActionResult> ConfirmPractitioner(string id)
+    {
+        var appointment = await db.Appointments.Include(a => a.Practitioner)
+            .SingleOrDefaultAsync(a => a.Id == id);
+        if (appointment is null) return NotFound();
+        if (appointment.Practitioner.UserId != access.UserId) return Forbid();
+        if (appointment.Status != AppointmentStatus.Booked)
+            return Conflict(new { message = "Csak aktív foglalás erősíthető meg." });
+        appointment.PractitionerConfirmed = true;
+        await db.SaveChangesAsync();
+        return NoContent();
     }
     [HttpDelete("{id}"),Authorize(Roles="Admin,AdmissionsOffice")]
     public async Task<IActionResult> Delete(string id) {

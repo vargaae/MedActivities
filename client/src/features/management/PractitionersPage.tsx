@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -14,10 +14,11 @@ import {
   Typography,
 } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import agent from "../../lib/api/agent";
 import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 import { errorText, type ManagedUser } from "./shared";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 type Doctor = {
   id: string;
   name: string;
@@ -63,6 +64,9 @@ function focusDialogOnEnter(container: HTMLElement) {
 }
 
 export default function PractitionersPage() {
+  const [params] = useSearchParams();
+  const targetId = params.get("practitionerId");
+  const editSelf = params.get("edit") === "1";
   const dialogTrigger = useRef<HTMLButtonElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const dialogFocusProps = {
@@ -99,6 +103,7 @@ export default function PractitionersPage() {
   const [busy, setBusy] = useState(false);
   const [nameSearch, setNameSearch] = useState("");
   const [specialtySearch, setSpecialtySearch] = useState("");
+  const autoOpenedSelf = useRef(false);
   const list = useQuery({
     queryKey: ["practitioners", session.version],
     queryFn: async ({ signal }) =>
@@ -140,6 +145,21 @@ export default function PractitionersPage() {
         )
       ).data,
   });
+  const ownId = session.data?.ownPractitioner?.id;
+  const editingOwn = !!form?.id && form.id === ownId && !admin;
+  useEffect(() => {
+    if (!editSelf || !ownId || !list.data || autoOpenedSelf.current) return;
+    const own = list.data.find((doctor) => doctor.id === ownId);
+    if (!own) return;
+    autoOpenedSelf.current = true;
+    void (async () => {
+      try {
+        setForm((await agent.get<Doctor>(`/practitioners/${own.id}`)).data);
+      } catch (e) {
+        setError(errorText(e));
+      }
+    })();
+  }, [editSelf, list.data, ownId]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -238,8 +258,8 @@ export default function PractitionersPage() {
       {list.isError && (
         <Alert severity="error">A kezelők nem tölthetők be.</Alert>
       )}
-      {list.data
-        ?.filter(
+      <PaginatedList key={`${nameSearch}-${specialtySearch}`} label="Kezelőorvosok" focusId={targetId} items={(list.data ?? [])
+        .filter(
           (d) =>
             d.name
               .toLocaleLowerCase("hu")
@@ -247,10 +267,13 @@ export default function PractitionersPage() {
             d.specialty
               .toLocaleLowerCase("hu")
               .includes(specialtySearch.toLocaleLowerCase("hu")),
-        )
-        .map((d) => (
-          <Paper key={d.id} sx={{ p: 2 }}>
-            <Typography variant="h6">{d.name}</Typography>
+        )}>
+        {(d) => (
+          <Paper key={d.id} sx={{ p: 2, bgcolor: d.id === targetId ? "action.selected" : undefined }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="h6">{d.name}</Typography>
+              {d.id === ownId && <Typography variant="body2" color="primary">Saját profil</Typography>}
+            </Box>
             <Typography>
               {d.specialty} · {d.city} · {d.venue}
             </Typography>
@@ -267,7 +290,7 @@ export default function PractitionersPage() {
             >
               Munkaidő és események
             </Button>
-            {admin && (
+            {(admin || d.id === ownId) && (
               <>
                 <Button
                   disabled={busy}
@@ -281,7 +304,7 @@ export default function PractitionersPage() {
                     });
                   }}
                 >
-                  Szerkesztés
+                  {d.id === ownId && !admin ? "Saját adatlap szerkesztése" : "Szerkesztés"}
                 </Button>
                 <Button
                   color="error"
@@ -295,7 +318,8 @@ export default function PractitionersPage() {
               </>
             )}
           </Paper>
-        ))}
+        )}
+      </PaginatedList>
       <Dialog
         open={!!form}
         {...dialogFocusProps}
@@ -305,7 +329,7 @@ export default function PractitionersPage() {
         fullWidth
       >
         <DialogTitle>
-          {form?.id ? "Kezelő szerkesztése" : "Új kezelő"}
+          {editingOwn ? "Saját kezelőorvosi profil szerkesztése" : form?.id ? "Kezelő szerkesztése" : "Új kezelő"}
         </DialogTitle>
         <DialogContent>
           {error && <Alert severity="error">{error}</Alert>}
@@ -338,24 +362,32 @@ export default function PractitionersPage() {
               required
               {...field("tajNumber")}
             />
-            <TextField
-              select
-              label="Szabad felhasználói fiók"
-              required
-              disabled={!!form?.id}
-              {...field("userId")}
-            >
-              {form?.id && (
-                <MenuItem value={form.userId}>
-                  A kezelő jelenlegi fiókja
-                </MenuItem>
-              )}
-              {users.data?.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.name?.trim() || u.userName}
-                </MenuItem>
-              ))}
-            </TextField>
+            {editingOwn ? (
+              <TextField
+                label="Kapcsolt felhasználói fiók"
+                value="Saját bejelentkezett fiók"
+                slotProps={{ input: { readOnly: true } }}
+              />
+            ) : (
+              <TextField
+                select
+                label="Szabad felhasználói fiók"
+                required
+                disabled={!!form?.id}
+                {...field("userId")}
+              >
+                {form?.id && (
+                  <MenuItem value={form.userId}>
+                    A kezelő jelenlegi fiókja
+                  </MenuItem>
+                )}
+                {users.data?.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.name?.trim() || u.userName}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             {!form?.id && users.data?.length === 0 && (
               <Alert severity="info">
                 Nincs szabad kezelői fiók. A Felhasználók menüben hozz létre
@@ -508,14 +540,16 @@ export default function PractitionersPage() {
             </Box>
           )}
           <Typography variant="h6">Események</Typography>
-          {events.data?.map((a) => (
+          <PaginatedList key={selected?.id} label="Kezelőorvos eseményei" items={events.data ?? []}>
+          {(a) => (
             <Box key={a.id}>
               <Button component={Link} to={`/activities/${a.id}`}>
                 {a.title}
               </Button>
               <Typography>{a.date.replace("T", " ")}</Typography>
             </Box>
-          ))}
+          )}
+          </PaginatedList>
           {events.data?.length === 0 && (
             <Typography>Nincs kapcsolt esemény.</Typography>
           )}

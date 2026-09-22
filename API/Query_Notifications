@@ -1,0 +1,5 @@
+SELECT MigrationId
+FROM dbo.__EFMigrationsHistory
+ORDER BY MigrationId;
+
+SELECT OBJECT_ID(N'dbo.UserNotifications') AS UserNotificationsTable;

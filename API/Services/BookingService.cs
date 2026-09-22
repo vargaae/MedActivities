@@ -52,7 +52,13 @@ public class BookingService(AppDbContext db)
         var activity=new Activity{Title=$"Időpont – {practitioner.Name}",Date=start,Description="Egyórás konzultáció",Category="Időpontfoglalás",City=practitioner.City,Venue=practitioner.Venue,CreatedByUserId=userId};
         activity.PatientActivities.Add(new(){PatientId=i.PatientId,ActivityId=activity.Id});
         activity.ActivityPractitioners.Add(new(){PractitionerId=i.PractitionerId,ActivityId=activity.Id});
-        var appointment=new Appointment{PatientId=i.PatientId,PractitionerId=i.PractitionerId,ActivityId=activity.Id,Activity=activity,BookingDate=i.Date,StartTime=start,EndTime=start.AddHours(1),Note=i.Note};
+        var creatorPractitionerId = await db.Practitioners.Where(p => p.UserId == userId)
+            .Select(p => (string?)p.Id).SingleOrDefaultAsync();
+        var appointment=new Appointment {
+            PatientId=i.PatientId, PractitionerId=i.PractitionerId, ActivityId=activity.Id,
+            Activity=activity, BookingDate=i.Date, StartTime=start, EndTime=start.AddHours(1), Note=i.Note,
+            PractitionerConfirmed = creatorPractitionerId is null || creatorPractitionerId == i.PractitionerId
+        };
         db.Appointments.Add(appointment);
         await db.SaveChangesAsync();await tx.CommitAsync();return appointment;
     }

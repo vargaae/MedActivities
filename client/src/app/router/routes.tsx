@@ -3,6 +3,7 @@ import PatientsPage from '../../features/management/PatientsPage';
 import HealthRecordsPage from '../../features/management/HealthRecordsPage';
 import PractitionersPage from '../../features/management/PractitionersPage';
 import UsersPage from '../../features/management/UsersPage';
+import NotificationsPage from '../../features/notifications/NotificationsPage';
 import MedBookingPage from '../../features/med/MedBookingPage';
 import { createBrowserRouter, Navigate } from "react-router";
 import App from "../layout/App";
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
             { path: 'patients', element: <RequireSession roles={['Admin','AdmissionsOffice','Practitioner']}><PatientsPage /></RequireSession> },
             { path: 'practitioners', element: <RequireSession><PractitionersPage /></RequireSession> },
             { path: 'users', element: <RequireSession roles={['Admin']}><UsersPage /></RequireSession> },
+            { path: 'notifications', element: <RequireSession><NotificationsPage /></RequireSession> },
             { path: 'counter', element: <RequireSession roles={['Admin']}><Counter /></RequireSession> },
             { path: 'errors', element: <RequireSession roles={['Admin']}><TestErrors /></RequireSession> },
             { path: 'not-found', element: <NotFound /> },

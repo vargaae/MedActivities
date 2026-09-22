@@ -18,7 +18,7 @@ public class AccessService(AppDbContext db, IHttpContextAccessor http)
         User.IsInRole("Practitioner") && p.PractitionerAccesses.Any(a => a.Practitioner.UserId == UserId));
     public IQueryable<Appointment> Appointments() => Staff ? db.Appointments : db.Appointments.Where(a =>
         (User.IsInRole("Patient") && a.Patient.UserId == UserId) ||
-        (User.IsInRole("Practitioner") && a.Practitioner.UserId == UserId));
+        (User.IsInRole("Practitioner") && (a.Practitioner.UserId == UserId || a.Activity.CreatedByUserId == UserId)));
     public IQueryable<Activity> Activities() => Application.Activities.Queries.ActivityVisibility.For(db, UserId,
         User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray());
     public IQueryable<Activity> EditableActivities() => Staff ? db.Activities : db.Activities.Where(a =>

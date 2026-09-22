@@ -14,20 +14,35 @@ public static class MedSetup
         services.AddAuthorization();return services;
     }
     public static IApplicationBuilder UseMedActivitiesGuard(this IApplicationBuilder app)=>app.Use(async(context,next)=>{
-
+        var logger=context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("MedActivities.Database");
+        var development=context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
+        async Task DatabaseError(Exception error,int status,string message) {
+            logger.LogError(error,"Database operation failed for {Method} {Path}",context.Request.Method,context.Request.Path);
+            context.Response.StatusCode=status;
+            await context.Response.WriteAsJsonAsync(new { message, detail=development ? error.GetBaseException().Message : null });
+        }
         try {await next();}
         catch(BookingException e){context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message=e.Message});}
-        catch(DbUpdateException e) when(e.InnerException is SqlException {Number:2601 or 2627 or 547}) {
-            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Egyediség vagy kapcsolat sérül: TAJ, felhasználó, dokumentum, napi foglalás vagy foglalt időpont."});
+        catch(DbUpdateException e) when(e.GetBaseException() is SqlException {Number:2601 or 2627 or 547}) {
+            await DatabaseError(e,409,"Kapcsolódó rekord vagy egyedi adat miatt a művelet nem hajtható végre.");
+        }
+        catch(DbUpdateException e) when(e.GetBaseException() is SqlException {Number:208}) {
+            await DatabaseError(e,503,"Az adatbázis sémája elavult. Futtasd az adatbázis-migrációkat, majd indítsd újra az API-t.");
         }
         catch(DbUpdateException e) when(e.GetBaseException() is SqlException) {
-            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Az adatbázis-kapcsolat miatt a törlés vagy mentés nem hajtható végre. Ellenőrizd a kapcsolódó adatokat, majd frissítsd a listát."});
+            await DatabaseError(e,500,"Az adatbázis-művelet sikertelen. A részletes okot az API fejlesztői naplója tartalmazza.");
         }
-        catch(SqlException) {
-            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Az adatbázis-kapcsolat miatt a művelet nem hajtható végre. Próbáld újra frissítés után."});
+        catch(SqlException e) when(e.Number is 1205 or 1222) {
+            await DatabaseError(e,409,"Párhuzamos adatbázis-művelet történt. Frissítsd az oldalt, majd próbáld újra.");
+        }
+        catch(SqlException e) when(e.Number is -1 or 2 or 53 or 40 or 4060) {
+            await DatabaseError(e,503,"Az SQL Server nem érhető el. Ellenőrizd, hogy a helyi SQL Server/LocalDB fut-e.");
+        }
+        catch(SqlException e) {
+            await DatabaseError(e,500,"Az adatbázis-művelet sikertelen. A részletes okot az API fejlesztői naplója tartalmazza.");
         }
         catch(Exception e) when(e is SqlException {Number:1205 or 1222} || e.InnerException is SqlException {Number:1205 or 1222}) {
-            context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Párhuzamos adatbázis-művelet. Frissíts és próbáld újra."});
+            await DatabaseError(e,409,"Párhuzamos adatbázis-művelet történt. Frissítsd az oldalt, majd próbáld újra.");
         }
         catch(DbUpdateException e) when(e.InnerException is SqliteException {SqliteErrorCode:19}) {
             context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{message="Egyediség vagy kapcsolat sérül: TAJ, felhasználó, napi foglalás vagy foglalt időpont."});

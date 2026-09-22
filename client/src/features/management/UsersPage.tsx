@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 import {
   Alert,
   Autocomplete,
@@ -118,9 +119,9 @@ export default function UsersPage() {
           {showDisabled ? "Nincs megjeleníthető felhasználó." : "Nincs aktív felhasználó. A letiltott fiókokhoz kapcsold be a megjelenítést."}
         </Typography>
       )}
-      {visibleUsers
-        .filter((u) => !selectedUser || u.id === selectedUser.id)
-        .map((u) => (
+      <PaginatedList key={`${showDisabled}-${selectedUser?.id ?? ""}`} label="Felhasználók"
+        items={visibleUsers.filter((u) => !selectedUser || u.id === selectedUser.id)}>
+        {(u) => (
           <Paper sx={{ p: 2 }} key={u.id}>
             <Typography variant="h6">{u.name?.trim() || u.userName}</Typography>
             <Typography>
@@ -147,7 +148,8 @@ export default function UsersPage() {
               Törlés
             </Button>
           </Paper>
-        ))}
+        )}
+      </PaginatedList>
       <Dialog
         open={!!form}
         onClose={() => {

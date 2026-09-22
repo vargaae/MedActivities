@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Persistence.Identity;
 namespace Persistence;
-public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>(options)
+public partial class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>(options)
 {
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<Patient> Patients => Set<Patient>();
@@ -20,10 +20,15 @@ public class AppDbContext(DbContextOptions options) : IdentityDbContext<AppUser>
     public DbSet<PatientNote> PatientNotes => Set<PatientNote>();
     public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
     public DbSet<DeletedRecord> DeletedRecords => Set<DeletedRecord>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public string? AuditUserId { get; set; }
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.Entity<UserNotification>().HasOne<AppUser>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<UserNotification>().Property(n => n.Message).HasMaxLength(500);
+        b.Entity<UserNotification>().Property(n => n.Kind).HasMaxLength(40);
+        b.Entity<UserNotification>().HasIndex(n => new { n.UserId, n.ReadAtUtc, n.CreatedAtUtc });
         b.Entity<ActivityComment>().HasOne(c => c.Activity).WithMany().HasForeignKey(c => c.ActivityId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<ActivityComment>().Property(c => c.Body).HasMaxLength(2000);
         b.Entity<ActivityComment>().Property(c => c.DisplayName).HasMaxLength(256);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PaginatedList from "../../app/shared/components/PaginatedList";
 import {
   Alert,
   Box,
@@ -162,13 +163,13 @@ export default function PatientsPage() {
           {title}
         </Typography>
       )}
-      {items
+      <PaginatedList key={`${title}-${search}`} label={title ?? "Páciensek"} items={items
         .filter((p) =>
           p.name
             .toLocaleLowerCase("hu")
             .includes(search.toLocaleLowerCase("hu")),
-        )
-        .map((p) => (
+        )}>
+        {(p) => (
           <Paper key={p.id} sx={{ p: 2 }}>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
               <PatientAvatar name={p.name} />
@@ -216,7 +217,8 @@ export default function PatientsPage() {
               </Button>
             )}
           </Paper>
-        ))}
+        )}
+      </PaginatedList>
     </>
   );
   return (
@@ -463,7 +465,8 @@ export default function PatientsPage() {
               {events.isError && (
                 <Alert severity="error">Az események nem tölthetők be.</Alert>
               )}
-              {events.data?.map((a) => (
+              <PaginatedList key={selected?.id} label="Páciens eseményei" items={events.data ?? []}>
+              {(a) => (
                 <Box key={a.id} sx={{ py: 1 }}>
                   <Button component={Link} to={`/activities/${a.id}`}>
                     {a.title}
@@ -472,7 +475,8 @@ export default function PatientsPage() {
                     {a.date.replace("T", " ")} · {a.status}
                   </Typography>
                 </Box>
-              ))}
+              )}
+              </PaginatedList>
               {events.data?.length === 0 && (
                 <Typography>Nincs kapcsolt esemény.</Typography>
               )}
