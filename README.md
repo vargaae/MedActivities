@@ -4,6 +4,33 @@ Egészségügyi páciens-, esemény- és időpontkezelő vizsgaremek, magyar nye
 
 ## Gyorsindítás klónozás után – Windows, PowerShell
 
+### Regisztrációs adatkezelési és titoktartási nyilatkozatok
+
+A páciens és a kezelőorvos regisztrációja csak az előre nem bejelölt nyilatkozat kifejezett elfogadása után sikerül. A páciensnél kiemelt szöveg tájékoztat a megosztott adatok és leletek vizsgálati, kezelési célú felhasználásáról az ellátásban részt vevő, jogosult orvosok számára. A dolgozói titoktartási nyilatkozat teljes név megadását is kéri.
+
+Felvételi irodai fiókot továbbra is csak admin hozhat létre, de nem fogadhat el nyilatkozatot a dolgozó helyett: azt a dolgozó az első jelszavas belépéskor, saját nevével teszi meg. A korábban létrehozott páciens- és dolgozói fiókok a következő jelszavas belépéskor kapják meg a hiányzó nyilatkozatot. Ez a webes és a Windows Forms belépésben is támogatott. A Development demógombos belépés fiktív adatok bemutatására szolgál, nem rögzít valós személy nevében elfogadást.
+
+Az API ellenőrzi az elfogadást és az aktuális szövegverziót. A szerver UTC-időponttal, névvel, szerepkörökkel és a szöveg SHA-256 lenyomatával menti az elfogadást az `AspNetUserClaims` táblába (`medactivities:declaration:` kezdetű ClaimType). Ehhez **nem szükséges új migráció**, a korábbi elfogadásokat nem tölti fel visszamenőleg. A nyilatkozatok forrása az `API/Infrastructure/RegistrationDeclarations.cs`; közzétett szöveg módosításakor új verzió szükséges. Ez nem minősített elektronikus aláírás és nem módosítja a meglévő adat-hozzáférési jogosultságokat.
+
+A korábbi Identity `/api/auth/register` és `/api/auth/login` végpont nem kerülheti meg a nyilatkozatot: regisztrációhoz `/api/session/register`, belépéshez `/api/session/login` használandó. A `declaration` mező alakja: `{ "accepted": true, "version": "a szervertől kapott verzió", "signedName": "Teljes név" }`. A nyilatkozat a `/api/session/declaration?role=Patient` vagy `role=Practitioner` / `role=AdmissionsOffice` címen kérhető le. Hiányzó belépési nyilatkozatnál csak helyes jelszó után érkezik HTTP 409 és `declaration_required` kód, a nyilatkozattal együtt; token csak sikeres elfogadás után jár.
+
+**Éles használati korlát:** a nyilatkozat vizsgaremekhez készült minta, nem teljes GDPR-tájékoztató. Valós egészségügyi adat használata előtt szükséges az adatkezelő és kapcsolattartó megnevezése, elérhetőségei, az adatkezelési célok és jogalapok, címzettek, megőrzési idők, érintetti joggyakorlás és esetleges adattovábbítások rendezése, valamint jogi és jogosultsági felülvizsgálat. A kötelező jelölőnégyzet önmagában nem teremt jogalapot az egészségügyi adatok kezelésére. Forrás: [GDPR, különösen 7., 9. és 13. cikk](https://eur-lex.europa.eu/legal-content/HU/TXT/?uri=CELEX:32016R0679).
+
+Célzott regressziós teszt (külön, ideiglenes SQLite adatbázissal; nem módosítja a helyi SQL Server adatait):
+
+```powershell
+dotnet build IntegrationTests/IntegrationTests.csproj -c Release
+dotnet IntegrationTests/bin/Release/net10.0-windows/IntegrationTests.dll . --declarations
+```
+
+### Automatikus üdvözlő esemény regisztrációkor
+
+A sikeres páciens- és kezelőorvos-regisztráció ugyanabban az adatbázis-tranzakcióban létrehoz egy saját profilhoz kapcsolt üdvözlő eseményt és egy olvasatlan értesítést. Az esemény tartalmazza a gratulációt, az elfogadott nyilatkozat teljes szövegét, verzióját, a nyilatkozattevő nevét és az elfogadás idejét. Aláírása: „EgészségÚt ADMIN – Automatikus rendszerüzenet”. Az értesítés az eseményhez vezet és kattintáskor olvasottá válik.
+
+A térképen a budapesti Deák Ferenc tér bemutató pontja jelenik meg; **ez nem rendelő, ügyfélszolgálati cím vagy időpontfoglalás**. A koordináták forrása: [Budapest Közút, Deák tér térképpont](https://www.budapestkozut.hu/wp-content/uploads/2026/05/bpforgfigykamhonlap05.pdf). Probléma esetén az esemény beszélgetésében lehet írni. Az automatikusan kiválasztott aktív admin (elsőbbséggel nem demófiók) az új üzenetekről értesítést kap. Aktív admin hiányában a szöveg külön jelzi, hogy a csatorna nem felügyelt. Az eseményre a meglévő hozzáférési szabályok érvényesek; ez nem privát, kizárólag két résztvevős támogatási beszélgetés.
+
+Ehhez nincs új migráció, és a változtatás nem hoz létre visszamenőleg eseményeket a meglévő fiókoknak. A belépés és a demóbelépés nem generál új üdvözlő eseményt. Az adatkezelési elfogadás hiteles naplója továbbra is a fiókhoz kapcsolt nyilatkozati rekord, nem a szerkeszthető eseményleírás.
+
 ### 1. Szükséges programok és a repo letöltése
 
 Telepítsd:

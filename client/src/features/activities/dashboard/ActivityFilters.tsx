@@ -44,8 +44,8 @@ export default function ActivityFilters({
 }: Props) {
   return (
     <Box sx={{ display: "grid", gap: 3 }}>
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h6">Szűrők</Typography>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
+        <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>Szűrők</Typography>
         <MenuList>
           {(
             [
@@ -98,9 +98,9 @@ export default function ActivityFilters({
       </Paper>
       <Paper
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 3 },
           borderRadius: 3,
-          "& .react-calendar": { width: "100%", border: 0 },
+          "& .react-calendar": { width: "100%", border: 0, fontSize: { xs: "0.85rem", sm: "1rem" } },
         }}
       >
         <Typography variant="h6" sx={{ mb: 2 }}>
@@ -129,9 +129,10 @@ export default function ActivityFilters({
           </Typography>
         )}
         {date && (
-          <Button onClick={() => onDate(null)}>Dátumszűrés törlése</Button>
+          <Button fullWidth onClick={() => onDate(null)}>Dátumszűrés törlése</Button>
         )}
         <Button
+          fullWidth
           onClick={() => {
             onFilter("all");
             onCategory("");

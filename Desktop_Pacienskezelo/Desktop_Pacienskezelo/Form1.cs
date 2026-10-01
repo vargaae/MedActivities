@@ -45,7 +45,19 @@ public partial class Form1 : Form
     private async void LoginButton_Click(object? sender, EventArgs e) => await Run(async () =>
     {
         api?.Dispose(); api = new ApiClient();
-        try { await api.Login(urlBox.Text, userBox.Text, passwordBox.Text); } finally { passwordBox.Clear(); }
+        try
+        {
+            try { await api.Login(urlBox.Text, userBox.Text, passwordBox.Text); }
+            catch (DeclarationRequiredException ex)
+            {
+                UseWaitCursor = false;
+                using var declaration = new DeclarationDialog(ex.Policy);
+                if (declaration.ShowDialog(this) != DialogResult.OK) return;
+                UseWaitCursor = true;
+                await api.Login(urlBox.Text, userBox.Text, passwordBox.Text, declaration.Acceptance);
+            }
+        }
+        finally { passwordBox.Clear(); }
         statusLabel.Text = $"{api.Session!.UserName} · {string.Join(", ", api.Session.Roles)} · közös SQL Server API";
         addPatientButton.Enabled = editPatientButton.Enabled = deletePatientButton.Enabled = api.Staff;
         addBookingButton.Enabled = moveBookingButton.Enabled = deleteBookingButton.Enabled = api.Staff;
@@ -90,7 +102,7 @@ public partial class Form1 : Form
             .Select(a => new { Azonosító = a.Id, Cím = a.Title, Dátum = a.Date, Állapot = a.Status, Helyszín = a.Venue }).ToList();
         activityGrid.Columns["Azonosító"].Visible = false;
         var bookings = await api.Get<List<AppointmentItem>>("appointments");
-        var labels = new[] { "Rögzítve", "Lemondva", "Befejezett", "Nem jelent meg" };
+        var labels = new[] { "Rögzítve", "Lemondva", "Teljesült", "Nem jelent meg" };
         bookingGrid.DataSource = bookings.Where(a => a.PatientId == patient.Id)
             .Select(a => new { Azonosító = a.Id, Kezdés = a.StartTime, Állapot = labels[a.Status], Megjegyzés = a.Note }).ToList();
         bookingGrid.Columns["Azonosító"].Visible = false; loadedPatientId = patient.Id;

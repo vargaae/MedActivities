@@ -11,10 +11,12 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import axios from "axios";
 import { changeSession } from "../../lib/api/changeSession";
+import DeclarationFields, { type DeclarationAcceptance, type DeclarationPolicy } from "./DeclarationFields";
+const emptyAcceptance: DeclarationAcceptance = { accepted: false, version: "", signedName: "" };
 export default function AuthDialog({
   open,
   onClose,
@@ -36,18 +38,36 @@ export default function AuthDialog({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
+  const [declaration, setDeclaration] = useState(emptyAcceptance);
+  const [loginPolicy, setLoginPolicy] = useState<DeclarationPolicy | null>(null);
+  const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+  const policyQuery = useQuery({
+    queryKey: ["registration-declaration", form.role],
+    enabled: open && mode === 1,
+    queryFn: async () => (await axios.get<DeclarationPolicy>(`${base}/session/declaration`, { params: { role: form.role } })).data,
+  });
+  const policy = mode === 1 ? policyQuery.data : loginPolicy;
+  const declarationReady = !!policy && declaration.accepted && declaration.version === policy.version &&
+    (!policy.requiresSignature || declaration.signedName.trim().length >= 3);
   const cache = useQueryClient();
   const navigate = useNavigate();
   const field = (key: keyof typeof form) => ({
     value: form[key],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm({ ...form, [key]: e.target.value }),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm({ ...form, [key]: e.target.value });
+      if (key === "role" || key === "userName") {
+        setDeclaration(emptyAcceptance);
+        setLoginPolicy(null);
+      }
+    },
     disabled: busy,
   });
   function close() {
     if (!busy) {
       setForm({ ...form, password: "" });
       setMessage("");
+      setDeclaration(emptyAcceptance);
+      setLoginPolicy(null);
       onClose();
     }
   }
@@ -60,6 +80,8 @@ export default function AuthDialog({
           onChange={(_, value: number) => {
             setMode(value);
             setMessage("");
+            setDeclaration(emptyAcceptance);
+            setLoginPolicy(null);
           }}
           sx={{ mb: 3 }}
         >
@@ -71,6 +93,11 @@ export default function AuthDialog({
           sx={{ display: "grid", gap: 2 }}
           onSubmit={async (e) => {
             e.preventDefault();
+            if ((mode === 1 || loginPolicy) && !declarationReady) {
+              setSuccess(false);
+              setMessage("Olvasd el és fogadd el a nyilatkozatot; dolgozóként a teljes nevedet is add meg.");
+              return;
+            }
             setBusy(true);
             setMessage("");
             setSuccess(false);
@@ -82,9 +109,12 @@ export default function AuthDialog({
               if (mode === 1) {
                 await axios.post(`${base}/session/register`, {
                   ...form,
+                  declaration,
                   birthDate: form.birthDate || "2000-01-01",
                 });
                 setMode(0);
+                setDeclaration(emptyAcceptance);
+                setLoginPolicy(null);
                 setForm({ ...form, password: "" });
                 setSuccess(true);
                 setMessage("A fiók és a profil elkészült. Jelentkezz be.");
@@ -95,11 +125,13 @@ export default function AuthDialog({
                     (
                       await axios.post<{ accessToken: string }>(
                         `${base}/session/login`,
-                        { userName: form.userName, password: form.password },
+                        { userName: form.userName, password: form.password, declaration },
                       )
                     ).data.accessToken,
                 );
                 setForm({ ...form, password: "" });
+                setDeclaration(emptyAcceptance);
+                setLoginPolicy(null);
                 onClose();
                 await navigate("/activities");
                 window.location.reload();
@@ -108,6 +140,10 @@ export default function AuthDialog({
               const data = axios.isAxiosError(error)
                 ? error.response?.data
                 : null;
+              if (data?.code === "declaration_required" && data.declaration) {
+                setLoginPolicy(data.declaration);
+                setDeclaration(emptyAcceptance);
+              }
               setMessage(
                 data?.message ??
                   (data?.errors
@@ -210,7 +246,14 @@ export default function AuthDialog({
               </Alert>
             </>
           )}
-          <Button type="submit" variant="contained" disabled={busy}>
+          {mode === 1 && policyQuery.isPending && <Alert severity="info">Nyilatkozat betöltése…</Alert>}
+          {mode === 1 && policyQuery.isError && <Alert severity="error"
+            action={<Button onClick={() => void policyQuery.refetch()}>Újra</Button>}>
+            A nyilatkozat nem tölthető be. Elfogadása nélkül nem lehet regisztrálni.
+          </Alert>}
+          {policy && <DeclarationFields key={policy.version} policy={policy} value={declaration}
+            onChange={setDeclaration} disabled={busy} />}
+          <Button type="submit" variant="contained" disabled={busy || ((mode === 1 || !!loginPolicy) && !declarationReady)}>
             {busy ? "Folyamatban…" : mode ? "Regisztráció" : "Belépés"}
           </Button>
           <Button onClick={close} disabled={busy}>

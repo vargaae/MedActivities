@@ -15,13 +15,13 @@ export default function ActivityDetailsPage() {
     if (!activity) return <div>Activity not found</div>;
     
     return (
-        <Grid container spacing={3}>
-            <Grid size={8}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
+            <Grid size={{ xs: 12, lg: 8 }}>
                 <ActivityDetailsHeader activity={activity}  />
                 <ActivityDetailsInfo activity={activity}  />
                 <ActivityDetailsChat activityId={activity.id} />
             </Grid>
-            <Grid size={4}>
+            <Grid size={{ xs: 12, lg: 4 }}>
                 <ActivityDetailsSidebar activity={activity} />
             </Grid>
         </Grid>

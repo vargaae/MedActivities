@@ -47,6 +47,13 @@ export default function UserMenu() {
   const open = Boolean(anchorEl);
   const roles = currentUser?.roles ?? [];
   const roleLabel = roles.map((role) => roleLabels[role] ?? role).join(", ");
+  const menuPalette = roles.includes("Admin")
+    ? { background: "#263647", foreground: "#ffffff", hover: "#ffffff1f" }
+    : roles.includes("AdmissionsOffice")
+      ? { background: "#1769a8", foreground: "#ffffff", hover: "#ffffff1f" }
+      : roles.includes("Practitioner")
+        ? { background: "#0b7f83", foreground: "#ffffff", hover: "#ffffff1f" }
+        : { background: "#ffffff", foreground: "#111827", hover: "#f1f5f9" };
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) =>
     setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
@@ -67,7 +74,15 @@ export default function UserMenu() {
         aria-haspopup="true"
         aria-expanded={open ? "true" : undefined}
         aria-label={`Profilmenü, ${unreadCount} olvasatlan értesítés`}
-        sx={{ fontSize: "0.9rem", textTransform: "none", minWidth: 0 }}
+        sx={{
+          fontSize: "0.9rem",
+          textTransform: "none",
+          minWidth: 0,
+          maxWidth: "100%",
+          px: { xs: 1, sm: 1.5 },
+          color: "#111827",
+          "&:hover": { color: "#111827" },
+        }}
       >
         <Box display="flex" alignItems="center" gap={1.25}>
           <Badge badgeContent={unreadCount} max={99} color="error" overlap="circular">
@@ -81,15 +96,26 @@ export default function UserMenu() {
           </Badge>
           <Box
             component="span"
-            sx={{ display: { xs: "none", sm: "block" }, textAlign: "left" }}
+            sx={{
+              display: "block",
+              minWidth: 0,
+              maxWidth: { xs: "calc(100vw - 120px)", sm: 180, md: 220 },
+              textAlign: "left",
+            }}
           >
             <Box
               component="strong"
-              sx={{ display: "block", fontSize: "0.8rem" }}
+              sx={{
+                display: "block",
+                fontSize: { xs: "0.75rem", sm: "0.8rem" },
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
               {currentUser?.displayName}
             </Box>
-            <Box component="small" sx={{ display: "block", opacity: 0.85 }}>
+            <Box component="small" sx={{ display: "block", opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {roleLabel}
             </Box>
           </Box>
@@ -100,6 +126,24 @@ export default function UserMenu() {
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
+        sx={{
+          "& .MuiPaper-root": {
+            backgroundColor: menuPalette.background,
+            color: menuPalette.foreground,
+          },
+          "& .MuiMenuItem-root": {
+            color: menuPalette.foreground,
+          },
+          "& .MuiMenuItem-root:hover": {
+            backgroundColor: menuPalette.hover,
+          },
+          "& .MuiListItemIcon-root": {
+            color: menuPalette.foreground,
+          },
+          "& .MuiListItemText-primary": {
+            color: menuPalette.foreground,
+          },
+        }}
         slotProps={{ list: { "aria-labelledby": "basic-button" } }}
       >
         <MenuItem component={Link} to="/notifications" onClick={handleClose}>

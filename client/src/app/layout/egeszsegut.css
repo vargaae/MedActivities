@@ -7,6 +7,16 @@
 * {
   box-sizing: border-box;
 }
+html,
+body,
+#root {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.eu-app main {
+  min-width: 0;
+}
 .eu-app {
   min-height: 100vh;
   background: #f5f8fb;
@@ -830,5 +840,20 @@
   }
   .eu-nav-user small {
     font-size: 9px;
+  }
+  .eu-nav-session {
+    width: 100%;
+  }
+  .eu-nav-session > .MuiButton-root {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .MuiContainer-root {
+    width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .MuiTypography-root {
+    overflow-wrap: anywhere;
   }
 }

@@ -11,6 +11,7 @@ namespace API.Med;
 public class SessionLoginInput {
     [Required] public string UserName { get; set; } = "";
     [Required] public string Password { get; set; } = "";
+    public DeclarationAcceptance? Declaration { get; set; }
 }
 public class SessionRegisterInput : SessionLoginInput {
     [Required,EmailAddress] public string Email { get; set; } = "";
@@ -22,6 +23,12 @@ public class SessionRegisterInput : SessionLoginInput {
 }
 [ApiController,Route("api/session")]
 public class SessionController(UserManager<AppUser> users,SignInManager<AppUser> signIn,AppDbContext db):ControllerBase {
+    [HttpGet("declaration"), AllowAnonymous]
+    public IActionResult Declaration([FromQuery] string role = "Patient") =>
+        role is "Patient" or "Practitioner" or "AdmissionsOffice"
+            ? Ok(RegistrationDeclarations.ForRoles([role]))
+            : BadRequest(new { message = "Ismeretlen nyilatkozati szerepkör." });
+
     [HttpPost("login"),AllowAnonymous]
     public async Task<IActionResult> Login(SessionLoginInput input) {
         var user=await users.FindByNameAsync(input.UserName) ?? await users.FindByEmailAsync(input.UserName);
@@ -29,6 +36,17 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
         var result=await signIn.CheckPasswordSignInAsync(user,input.Password,true);
         if(!result.Succeeded)return Unauthorized(new{message="Hibás belépési adatok vagy zárolt fiók."});
         if (user.Id.StartsWith(DemoSessionSetup.Prefix) && !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()) return Unauthorized();
+        var roles = await users.GetRolesAsync(user);
+        var policy = RegistrationDeclarations.ForRoles(roles);
+        if (policy is not null && !await RegistrationDeclarations.HasAccepted(db, user.Id, policy))
+        {
+            var error = RegistrationDeclarations.Validate(policy, input.Declaration);
+            if (error is not null) return Conflict(new { code = "declaration_required", message = error, declaration = policy });
+            var signedName = policy.RequiresSignature ? input.Declaration!.SignedName :
+                await db.Patients.Where(p => p.UserId == user.Id).Select(p => p.Name).FirstOrDefaultAsync() ?? user.UserName ?? user.Id;
+            RegistrationDeclarations.Record(db, user.Id, policy, signedName, roles);
+            await db.SaveChangesAsync();
+        }
         return SignIn(await signIn.CreateUserPrincipalAsync(user),IdentityConstants.BearerScheme);
     }
     [HttpPost("logout"), Authorize]
@@ -40,6 +58,9 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
     }
     [HttpPost("register"),AllowAnonymous]
     public async Task<IActionResult> Register(SessionRegisterInput input) {
+        var policy = RegistrationDeclarations.ForRoles([input.Role])!;
+        var declarationError = RegistrationDeclarations.Validate(policy, input.Declaration);
+        if (declarationError is not null) return BadRequest(new { message = declarationError });
         if(input.Role=="Patient" && (input.BirthDate==default || input.BirthDate>DateOnly.FromDateTime(DateTime.Today)))return BadRequest(new{message="Érvényes születési dátum szükséges."});
         if ((input.Role == "Patient" && await db.Patients.AnyAsync(p => p.TajNumber == input.TajNumber)) ||
             (input.Role == "Practitioner" && await db.Practitioners.AnyAsync(p => p.TajNumber == input.TajNumber)))
@@ -58,9 +79,22 @@ public class SessionController(UserManager<AppUser> users,SignInManager<AppUser>
             _ => e.Description
         }))});
         MedSetup.Check(await users.AddToRoleAsync(user,input.Role));
-        if(input.Role=="Patient")db.Patients.Add(new(){Name=input.Name.Trim(),TajNumber=input.TajNumber,UserId=user.Id,BirthDate=input.BirthDate,Email=input.Email});
-        else {var profile=new PractitionerProfile{Name=input.Name.Trim(),TajNumber=input.TajNumber,UserId=user.Id,Specialty=input.Specialty};profile.BookingSettings=new(){PractitionerId=profile.Id};db.Practitioners.Add(profile);}
-        await db.SaveChangesAsync();await tx.CommitAsync();return StatusCode(201,new{user.Id});
+        var signedName = policy.RequiresSignature ? input.Declaration!.SignedName : input.Name;
+        var acceptedAt = RegistrationDeclarations.Record(db, user.Id, policy, signedName, [input.Role]);
+        string? patientId = null, practitionerId = null;
+        if (input.Role == "Patient")
+        {
+            var profile = new Patient { Name = input.Name.Trim(), TajNumber = input.TajNumber, UserId = user.Id, BirthDate = input.BirthDate, Email = input.Email };
+            db.Patients.Add(profile); patientId = profile.Id;
+        }
+        else
+        {
+            var profile = new PractitionerProfile { Name = input.Name.Trim(), TajNumber = input.TajNumber, UserId = user.Id, Specialty = input.Specialty };
+            profile.BookingSettings = new() { PractitionerId = profile.Id };
+            db.Practitioners.Add(profile); practitionerId = profile.Id;
+        }
+        var welcome = await RegistrationWelcome.Add(db, user.Id, input.Name, policy, signedName, acceptedAt, patientId, practitionerId);
+        await db.SaveChangesAsync();await tx.CommitAsync();return StatusCode(201,new{user.Id, welcomeActivityId = welcome.Id});
     }
     [HttpGet("me"),Authorize]
     public async Task<IActionResult> Me() {

@@ -18,36 +18,39 @@ export default function ActivityInfo({ activity }: Props) {
       </Box>
       <Divider />
 
-      <Grid container alignItems="center" pl={2} py={1}>
-        <Grid size={1}>
+      <Grid container alignItems="center" px={{ xs: 1.5, sm: 2 }} py={1}>
+        <Grid size={{ xs: 2, sm: 1 }}>
           <Info color="info" fontSize="large" />
         </Grid>
-        <Grid size={11}>
-          <Typography>{activity.description}</Typography>
+        <Grid size={{ xs: 10, sm: 11 }} minWidth={0}>
+          <Typography sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{activity.description}</Typography>
         </Grid>
       </Grid>
       <Divider />
-      <Grid container alignItems="center" pl={2} py={1}>
-        <Grid size={1}>
+      <Grid container alignItems="center" px={{ xs: 1.5, sm: 2 }} py={1}>
+        <Grid size={{ xs: 2, sm: 1 }}>
           <CalendarToday color="info" fontSize="large" />
         </Grid>
-        <Grid size={11}>
+        <Grid size={{ xs: 10, sm: 11 }} minWidth={0}>
           <Typography>{formatDate(activity.date)}</Typography>
         </Grid>
       </Grid>
       <Divider />
 
-      <Grid container alignItems="center" pl={2} py={1}>
-        <Grid size={1}>
+      <Grid container alignItems="center" px={{ xs: 1.5, sm: 2 }} py={1}>
+        <Grid size={{ xs: 2, sm: 1 }}>
           <Place color="info" fontSize="large" />
         </Grid>
         <Grid
-          size={11}
+          size={{ xs: 10, sm: 11 }}
           display="flex"
           justifyContent="space-between"
           alignItems="center"
+          gap={1}
+          minWidth={0}
+          sx={{ flexWrap: { xs: "wrap", sm: "nowrap" } }}
         >
-          <Typography>
+          <Typography sx={{ minWidth: 0, overflowWrap: "anywhere", flex: 1 }}>
             {activity.venue}, {activity.city}
           </Typography>
           <Button onClick={() => setMapOpen(!mapOpen)}>
@@ -56,7 +59,7 @@ export default function ActivityInfo({ activity }: Props) {
         </Grid>
       </Grid>
       {mapOpen && (
-        <Box sx={{ height: 400, zIndex: 1000, display: "block" }}>
+        <Box sx={{ height: { xs: 280, sm: 400 }, zIndex: 1000, display: "block" }}>
           <MapComponent
             position={[activity.latitude, activity.longitude]}
             venue={activity.venue}

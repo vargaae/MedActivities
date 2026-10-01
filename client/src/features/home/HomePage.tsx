@@ -11,9 +11,11 @@ import {
   HubOutlined,
 } from "@mui/icons-material";
 import AuthDialog from "./AuthDialog";
+import { useActivityAccess } from "../../lib/hooks/useActivityAccess";
 
 export default function HomePage() {
   const [authOpen, setAuthOpen] = useState(false);
+  const session = useActivityAccess();
   return (
     <div className="eu-home">
       <section className="eu-hero" aria-labelledby="home-heading">
@@ -32,12 +34,14 @@ export default function HomePage() {
             több figyelem kerül arra, ami számít.
           </p>
           <div className="eu-hero-actions">
-            <button
-              className="eu-button eu-button-primary"
-              onClick={() => setAuthOpen(true)}
-            >
-              Belépés / regisztráció <ArrowForwardRounded />
-            </button>
+            {!session.authenticated && (
+              <button
+                className="eu-button eu-button-primary"
+                onClick={() => setAuthOpen(true)}
+              >
+                Belépés / regisztráció <ArrowForwardRounded />
+              </button>
+            )}
             <Link className="eu-text-link" to="/activities">
               Események megtekintése <ArrowOutwardRounded fontSize="small" />
             </Link>

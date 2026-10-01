@@ -70,6 +70,21 @@ app.UseCors("CorsPolicy");
 
 app.UseMedActivitiesGuard();
 
+// The stock Identity registration/login do not enforce our role-specific declarations.
+// Keep its password-reset and other account endpoints, but use the session controller for sign-up/sign-in.
+app.Use(async (context, next) => {
+    var path = context.Request.Path.Value?.TrimEnd('/');
+    if (HttpMethods.IsPost(context.Request.Method) &&
+        (string.Equals(path, "/api/auth/register", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(path, "/api/auth/login", StringComparison.OrdinalIgnoreCase)))
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsJsonAsync(new { message = "A belépéshez és a nyilatkozat elfogadásához a /api/session/login, regisztrációhoz a /api/session/register végpontot használd." });
+        return;
+    }
+    await next();
+});
+
 app.Use(async (context, next) => {
     if (context.Request.Path.StartsWithSegments("/api/chat") && !context.Request.Headers.ContainsKey("Authorization") &&
         context.Request.Query.TryGetValue("access_token", out var chatToken))

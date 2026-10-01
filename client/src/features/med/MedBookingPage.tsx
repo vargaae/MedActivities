@@ -83,7 +83,7 @@ function BookingEditor({ version }: { version: number }) {
     (appointment): appointment is Appointment =>
       Boolean(appointment?.id && appointment.startTime),
   );
-  const statusLabels = ["Rögzítve", "Lemondva", "Befejezett", "Nem jelent meg"];
+  const statusLabels = ["Rögzítve", "Lemondva", "Teljesült", "Nem jelent meg"];
   const slots = useQuery({
     queryKey: ["booking", "slots", version, practitionerId, date],
     enabled: session.authenticated && !!date && !!practitionerId && canBook,

@@ -10,7 +10,7 @@ export default function ActivityDetailsHeader({ activity }: { activity: Activity
       (
         {
           Scheduled: "Tervezett",
-          Completed: "Befejezett",
+          Completed: "Teljesült",
           Cancelled: "Lemondva",
           NoShow: "Nem jelent meg",
         } as Record<string, string>
@@ -26,18 +26,18 @@ export default function ActivityDetailsHeader({ activity }: { activity: Activity
     }
     const image = categoryImage(activity.category);
     return <Paper sx={{ mb: 2, borderRadius: 3, overflow: 'hidden' }}>
-        <Box sx={{ minHeight: 220, p: 3, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', color: 'white', backgroundImage: `linear-gradient(0deg, rgba(14,53,49,.86), rgba(14,53,49,.12)), url(${image.src})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, display: 'flex', flexDirection: 'column', color: 'white', backgroundImage: `linear-gradient(0deg, rgba(14,53,49,.86), rgba(14,53,49,.12)), url(${image.src})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <Chip label={image.label} sx={{ alignSelf: 'flex-start', mb: 1, bgcolor: 'rgba(255,255,255,.9)' }} />
-        <Typography variant="h4">{activity.title}</Typography>
+        <Typography variant="h4" sx={{ fontSize: { xs: "1.55rem", sm: "2.125rem" }, overflowWrap: "anywhere" }}>{activity.title}</Typography>
         <Typography sx={{ my: 1 }}>{formatDate(activity.date)}</Typography>
-        <Typography>Kezelőorvos: {activity.practitioners.map(p => p.name).join(', ') || 'Nincs hozzárendelve'}</Typography>
+        {!!activity.practitioners?.length && <Typography>Kezelőorvos: {activity.practitioners.map(p => p.name).join(', ')}</Typography>}
         </Box>
-        <Box sx={{ p: 3 }}>
-        <Chip sx={{ my: 2 }} label={activity.isCancelled ? 'Lemondva' : status} />
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {activity.canEditFields && <Button component={Link} to={`/manage/${activity.id}`} variant="contained">Esemény szerkesztése</Button>}
-            {activity.canDelete && <Button color="error" variant="outlined" onClick={() => setConfirm(true)}>Esemény törlése</Button>}
-            {activity.isAppointment && <Button component={Link} to="/booking">Foglalások / lemondás</Button>}
+        <Box sx={{ px: { xs: 2, sm: 3 }, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <Chip label={activity.isCancelled ? 'Lemondva' : status} />
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: '100%' }}>
+            {activity.canEditFields && <Button component={Link} to={`/manage/${activity.id}`} variant="contained" sx={{ maxWidth: '100%' }}>Esemény szerkesztése</Button>}
+            {activity.canDelete && <Button color="error" variant="outlined" onClick={() => setConfirm(true)} sx={{ maxWidth: '100%' }}>Esemény törlése</Button>}
+            {activity.isAppointment && <Button component={Link} to="/booking" sx={{ maxWidth: '100%' }}>Foglalások / lemondás</Button>}
         </Box></Box>
         <Dialog open={confirm} onClose={() => { if (!deleteActivity.isPending) setConfirm(false); }}>
             <DialogTitle>Esemény törlése</DialogTitle>

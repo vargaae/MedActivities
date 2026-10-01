@@ -40,7 +40,7 @@ export default function PhotoUploadWidget({ uploadPhoto, loading }: Props) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
   return (
     <Grid container spacing={3}>
-      <Grid size={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Typography variant="overline" color="secondary">
           Step 1 - Add photo
         </Typography>
@@ -56,18 +56,18 @@ export default function PhotoUploadWidget({ uploadPhoto, loading }: Props) {
           }}
         >
           <input {...getInputProps()} />
-          <CloudUpload sx={{ fontSize: 80 }} />
+          <CloudUpload sx={{ fontSize: { xs: 56, sm: 80 } }} />
           <Typography variant="h5">Drop image here</Typography>
         </Box>
       </Grid>
-      <Grid size={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Typography variant="overline" color="secondary">
           Step 2 - Resize image
         </Typography>
         {files[0]?.preview && (
           <Cropper
             src={files[0]?.preview}
-            style={{ height: 300, width: "90%" }}
+            style={{ height: "auto", maxHeight: 300, width: "100%", maxWidth: "100%" }}
             aspectRatio={1}
             initialAspectRatio={1}
             preview=".img-preview"
@@ -78,7 +78,7 @@ export default function PhotoUploadWidget({ uploadPhoto, loading }: Props) {
           />
         )}
       </Grid>
-      <Grid size={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         {files[0]?.preview && (
           <>
             <Typography variant="overline" color="secondary">
@@ -86,10 +86,10 @@ export default function PhotoUploadWidget({ uploadPhoto, loading }: Props) {
             </Typography>
             <div
               className="img-preview"
-              style={{ width: 300, height: 300, overflow: "hidden" }}
+              style={{ width: "100%", maxWidth: 300, height: "auto", aspectRatio: "1", overflow: "hidden" }}
             />
             <Button
-              sx={{ my: 1, width: 300 }}
+              sx={{ my: 1, width: "100%", maxWidth: 300 }}
               onClick={onCrop}
               variant="contained"
               color="secondary"

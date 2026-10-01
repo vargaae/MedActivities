@@ -17,7 +17,7 @@ import ActivityLogin from './ActivityLogin';
 export default function ActivityForm() {
     const { id } = useParams();
     const access = useActivityAccess();
-    return <Paper sx={{ borderRadius: 3, padding: 3 }}>
+    return <Paper sx={{ borderRadius: 3, p: { xs: 2, sm: 3 } }}>
         <ActivityLogin />
         {access.authenticated && access.isLoading && <Typography>Jogosultságok betöltése…</Typography>}
         {access.authenticated && access.data && <ActivityEditor key={`${id ?? 'new'}-${access.version}`} />}
@@ -94,7 +94,7 @@ function ActivityEditor() {
                 <TextInput label="Leírás" control={control} name="description" multiline rows={3} />
                 <SelectInput items={categoryOptions} label="Kategória" name="category" control={control} />
                 <DateTimeInput label="Dátum" name="date" control={control} />
-                <TextField select label="Státusz" value={status} onChange={e => setStatus(e.target.value)} slotProps={{ select: { native: true } }}><option value="Scheduled">Tervezett</option><option value="Cancelled">Lemondva</option><option value="Completed">Befejezett</option><option value="NoShow">Nem jelent meg</option></TextField>
+                <TextField select label="Státusz" value={status} onChange={e => setStatus(e.target.value)} slotProps={{ select: { native: true } }}><option value="Scheduled">Tervezett</option><option value="Cancelled">Lemondva</option><option value="Completed">Teljesült</option><option value="NoShow">Nem jelent meg</option></TextField>
                 <LocationInput label="Helyszín" name="location" control={control} />
                 {canSave && <Button type="submit" variant="contained" loading={updateActivity.isPending || createActivity.isPending}>Mentés</Button>}
             </Box>

@@ -120,7 +120,7 @@ export default function AppointmentActions({
             >
               <MenuItem value="Scheduled">Rögzítve</MenuItem>
               <MenuItem value="Cancelled">Lemondva</MenuItem>
-              <MenuItem value="Completed">Befejezett</MenuItem>
+              <MenuItem value="Completed">Teljesült</MenuItem>
               <MenuItem value="NoShow">Nem jelent meg</MenuItem>
             </TextField>
           )}

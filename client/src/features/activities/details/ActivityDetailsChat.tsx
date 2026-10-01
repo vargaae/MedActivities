@@ -56,7 +56,7 @@ export default function ActivityDetailsChat({ activityId }: { activityId: string
     setPage(value);
     if (target) { const next = new URLSearchParams(params); next.delete("comment"); setParams(next, { replace: true }); }
   }
-  return <Card id="chat" ref={chatRef} sx={{ mt: 3 }}><CardContent>
+  return <Card id="chat" ref={chatRef} sx={{ mt: { xs: 2, sm: 3 } }}><CardContent sx={{ p: { xs: 2, sm: 3 } }}>
     <Typography variant="h6">Eseményhez tartozó beszélgetés</Typography>
     <Typography variant="body2" color="text.secondary">Legújabb üzenetek elöl. A korábbi üzenetek a lapozóval érhetők el.</Typography>
     {error && <Alert severity="error" sx={{ my: 1 }}>{error}</Alert>}

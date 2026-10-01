@@ -17,7 +17,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
     (
       {
         Scheduled: "Tervezett",
-        Completed: "Befejezett",
+        Completed: "Teljesült",
         Cancelled: "Lemondva",
         NoShow: "Nem jelent meg",
       } as Record<string, string>
@@ -53,7 +53,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
               objectFit: "cover",
             }}
           />
-          <CardContent sx={{ p: 3 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
               <Chip
                 label={image.label}
@@ -70,13 +70,13 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
             <Typography
               variant="h6"
               component="h2"
-              sx={{ fontWeight: 700, mb: 1 }}
+              sx={{ fontWeight: 700, mb: 1, overflowWrap: "anywhere", fontSize: { xs: "1.05rem", sm: "1.25rem" } }}
             >
               {activity.title}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <AccessTime fontSize="small" color="action" />
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 {new Date(activity.date).toLocaleString("hu-HU", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -85,7 +85,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Place fontSize="small" color="action" />
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 {activity.city} · {activity.venue}
               </Typography>
             </Box>
@@ -93,8 +93,8 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
         </Box>
         <Box
           sx={{
-            px: 3,
-            py: 2,
+            px: { xs: 2, sm: 3 },
+            py: { xs: 1.5, sm: 2 },
             bgcolor: "#f6faf8",
             borderTop: "1px solid #e5eeea",
           }}
@@ -103,8 +103,8 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
         </Box>
         <Box
           sx={{
-            px: 3,
-            py: 2,
+            px: { xs: 2, sm: 3 },
+            py: { xs: 1.5, sm: 2 },
             display: "flex",
             alignItems: "center",
             gap: 2,
@@ -116,7 +116,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
             color="text.secondary"
             sx={{
               flex: 1,
-              minWidth: 180,
+              minWidth: { xs: "100%", sm: 180 },
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
@@ -132,6 +132,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
             endIcon={<ArrowForwardRounded />}
             sx={{
               borderRadius: 2,
+              width: { xs: "100%", sm: "auto" },
               backgroundColor: "#a0c9bf",
               "&:hover": { backgroundColor: "#769b93" },
             }}

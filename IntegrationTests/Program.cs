@@ -20,6 +20,11 @@ internal static class Program
     {
         var root = Path.GetFullPath(args.FirstOrDefault() ?? Environment.CurrentDirectory);
         try {
+            if (args.Contains("--declarations"))
+            {
+                DeclarationTests.Run(root).GetAwaiter().GetResult();
+                return 0;
+            }
             if (args.Contains("--model-only"))
             {
                 using var modelDb = new SqlServerDbContext(new DbContextOptionsBuilder<SqlServerDbContext>()
@@ -103,12 +108,17 @@ internal static class Program
             await Expect(admin, "PUT", "patients/" + p1, PatientInput("Módosított", "012345678"), 204);
             Check((await desktop.Get<Patient>("patients/" + p1)).Name == "Módosított", "Patient update visible from WinForms client");
 
-            await Expect(anonymous, "POST", "session/register", new { userName = "doctor", email = "doctor@test.invalid", password = secret, name = "Teszt Orvos", role = "Practitioner", tajNumber = "900000001", birthDate = "1980-01-01" }, 201);
-            await Expect(anonymous, "POST", "session/register", new { userName = "patient", email = "patient@test.invalid", password = secret, name = "Saját Páciens", role = "Patient", tajNumber = "800000001", birthDate = "1990-01-01" }, 201);
+            var staffPolicy = (await anonymous.GetFromJsonAsync<JsonObject>("session/declaration?role=Practitioner"))!;
+            var patientPolicy = (await anonymous.GetFromJsonAsync<JsonObject>("session/declaration?role=Patient"))!;
+            var staffDeclaration = new { accepted = true, version = staffPolicy["version"]!.ToString(), signedName = "Teszt Orvos" };
+            var patientDeclaration = new { accepted = true, version = patientPolicy["version"]!.ToString() };
+            await Expect(anonymous, "POST", "session/register", new { userName = "doctor", email = "doctor@test.invalid", password = secret, name = "Teszt Orvos", role = "Practitioner", tajNumber = "900000001", birthDate = "1980-01-01", declaration = staffDeclaration }, 201);
+            await Expect(anonymous, "POST", "session/register", new { userName = "patient", email = "patient@test.invalid", password = secret, name = "Saját Páciens", role = "Patient", tajNumber = "800000001", birthDate = "1990-01-01", declaration = patientDeclaration }, 201);
             using var doctor = await Login(anonymous.BaseAddress, "doctor", secret);
             using var patient = await Login(anonymous.BaseAddress, "patient", secret);
             await Expect(admin, "POST", "user-management", new { userName = "office", email = "office@test.invalid", password = secret, name = "Felvételi teszt", role = "AdmissionsOffice" }, 201);
-            using var office = await Login(anonymous.BaseAddress, "office", secret);
+            using var office = await Login(anonymous.BaseAddress, "office", secret,
+                new { accepted = true, version = staffPolicy["version"]!.ToString(), signedName = "Felvételi teszt" });
             var removableOffice = (await Expect(admin, "POST", "user-management", new { userName = "removable-office", email = "removable-office@test.invalid", password = secret, name = "Törölhető iroda", role = "AdmissionsOffice" }, 201))!["id"]!.GetValue<string>();
             await Expect(admin, "DELETE", "user-management/" + removableOffice, null, 204);
             var doctors = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray();
@@ -144,7 +154,7 @@ internal static class Program
             await Expect(doctor, "GET", "activities/" + activityId, null, 200);
             Check((await Expect(admin, "GET", $"activities?patientId={p1}&practitionerId={doctorId}", null, 200))!.AsArray().Count == 1, "MediatR patient and practitioner filters combine");
             Check((await Expect(doctor, "GET", $"activities?patientId={p2}", null, 200))!.AsArray().Count == 0, "Filter cannot broaden practitioner access");
-            await Expect(anonymous, "POST", "session/register", new { userName = "otherdoctor", email = "otherdoctor@test.invalid", password = secret, name = "Másik Orvos", role = "Practitioner", tajNumber = "900000003", birthDate = "1980-01-01" }, 201);
+            await Expect(anonymous, "POST", "session/register", new { userName = "otherdoctor", email = "otherdoctor@test.invalid", password = secret, name = "Másik Orvos", role = "Practitioner", tajNumber = "900000003", birthDate = "1980-01-01", declaration = new { accepted = true, version = staffPolicy["version"]!.ToString(), signedName = "Másik Orvos" } }, 201);
             var otherDoctorId = (await Expect(admin, "GET", "practitioners", null, 200))!.AsArray().Single(p => p!["id"]!.GetValue<string>() != doctorId)!["id"]!.GetValue<string>();
             await Expect(admin, "PUT", $"patients/{p2}/access/{otherDoctorId}", new {}, 204);
             object HistoryInput(string? id) => new { id, title = "Másik orvos eseménye", date = day.ToDateTime(new TimeOnly(9, 0)), description = "Előzmény", category = "Vizsgálat", city = "Budapest", venue = "Rendelő", patientId = p1, practitionerIds = new[] { otherDoctorId } };
@@ -358,10 +368,10 @@ internal static class Program
         await Expect(oldDemo, "GET", "session/me", null, 401);
         await Expect(anonymous, "POST", "dev-session/Admin", new { }, 404);
     }
-    private static async Task<HttpClient> Login(Uri address, string userName, string password)
+    private static async Task<HttpClient> Login(Uri address, string userName, string password, object? declaration = null)
     {
         var http = new HttpClient { BaseAddress = address };
-        var result = await Expect(http, "POST", "session/login", new { userName, password }, 200);
+        var result = await Expect(http, "POST", "session/login", new { userName, password, declaration }, 200);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result!["accessToken"]!.GetValue<string>());
         return http;
     }

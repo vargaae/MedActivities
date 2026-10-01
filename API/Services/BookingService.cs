@@ -36,7 +36,7 @@ public class BookingService(AppDbContext db)
             if(await db.Appointments.AnyAsync(a=>a.Id!=appointment.Id && a.PatientId==appointment.PatientId && a.BookingDate==day && a.Status!=AppointmentStatus.Cancelled))
                 throw new BookingException("A páciensnek erre a napra már van foglalása.");
             if(target is AppointmentStatus.Completed or AppointmentStatus.NoShow && date>LocalNow())
-                throw new BookingException("Jövőbeli foglalás nem jelölhető befejezettnek vagy meg nem jelentnek.");
+                throw new BookingException("Jövőbeli foglalás nem jelölhető teljesültnek vagy meg nem jelentnek.");
         }
         appointment.BookingDate=day;appointment.StartTime=date;appointment.EndTime=date.AddHours(1);appointment.Status=target;
         activity.Date=date;activity.Status=status;activity.IsCancelled=target==AppointmentStatus.Cancelled;
@@ -50,6 +50,7 @@ public class BookingService(AppDbContext db)
         if(await db.Appointments.AnyAsync(a=>a.PatientId==i.PatientId&&a.BookingDate==i.Date&&a.Status!=AppointmentStatus.Cancelled))throw new BookingException("A páciensnek erre a napra már van időpontja.");
         var start=i.Date.ToDateTime(new TimeOnly(i.Hour,0));
         var activity=new Activity{Title=$"Időpont – {practitioner.Name}",Date=start,Description="Egyórás konzultáció",Category="Időpontfoglalás",City=practitioner.City,Venue=practitioner.Venue,CreatedByUserId=userId};
+        PracticeLocation.Apply(activity);
         activity.PatientActivities.Add(new(){PatientId=i.PatientId,ActivityId=activity.Id});
         activity.ActivityPractitioners.Add(new(){PractitionerId=i.PractitionerId,ActivityId=activity.Id});
         var creatorPractitionerId = await db.Practitioners.Where(p => p.UserId == userId)

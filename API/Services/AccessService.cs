@@ -22,6 +22,7 @@ public class AccessService(AppDbContext db, IHttpContextAccessor http)
     public IQueryable<Activity> Activities() => Application.Activities.Queries.ActivityVisibility.For(db, UserId,
         User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray());
     public IQueryable<Activity> EditableActivities() => Staff ? db.Activities : db.Activities.Where(a =>
-        (User.IsInRole("Patient") && a.PatientActivities.Any(p => p.Patient.UserId == UserId)) ||
+        (User.IsInRole("Patient") && a.PatientActivities.Any(p => p.Patient.UserId == UserId) &&
+            !db.UserNotifications.Any(n => n.ActivityId == a.Id && n.Kind == "welcome")) ||
         (User.IsInRole("Practitioner") && a.ActivityPractitioners.Any(p => p.Practitioner.UserId == UserId)));
 }

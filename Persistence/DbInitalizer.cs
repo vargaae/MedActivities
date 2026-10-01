@@ -43,9 +43,9 @@ new()
     Description = "Első gyógytorna konzultáció és mozgásszervi állapotfelmérés.",
     Category = "Gyógytorna",
     City = "Budapest",
-    Venue = "Physio Praxis",
-    Latitude = 47.513600,
-    Longitude = 19.050100
+    Venue = PracticeLocation.PhysioPraxisVenue,
+    Latitude = PracticeLocation.Latitude,
+    Longitude = PracticeLocation.Longitude
 },
 new()
 {
@@ -98,9 +98,9 @@ new()
     Description = "Funkcionális állapot felmérése és gyakorlatok módosítása.",
     Category = "Gyógytorna",
     City = "Budapest",
-    Venue = "Physio Praxis",
-    Latitude = 47.513600,
-    Longitude = 19.050100
+    Venue = PracticeLocation.PhysioPraxisVenue,
+    Latitude = PracticeLocation.Latitude,
+    Longitude = PracticeLocation.Longitude
 },
 new()
 {

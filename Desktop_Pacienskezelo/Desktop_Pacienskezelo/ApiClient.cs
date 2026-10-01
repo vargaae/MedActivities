@@ -28,12 +28,12 @@ public sealed class ApiClient : IDisposable
             throw new InvalidOperationException("A pácienskezelőhöz elérhető SQL Server API szükséges.");
         return health.Database;
     }
-    public async Task Login(string url, string userName, string password)
+    public async Task Login(string url, string userName, string password, DeclarationAcceptance? declaration = null)
     {
         ConfigureAddress(url);
         if (Session is not null) await LogoutAsync();
         await CheckHealth(url);
-        var token = await Post<Token>("session/login", new { userName, password });
+        var token = await Post<Token>("session/login", new { userName, password, declaration });
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
         Session = await Get<Session>("session/me");
         if (!Session.Roles.Any(r => r is "Admin" or "AdmissionsOffice" or "Practitioner"))
@@ -92,6 +92,10 @@ public sealed class ApiClient : IDisposable
         };
         try {
             using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("code", out var code) && code.GetString() == "declaration_required" &&
+                doc.RootElement.TryGetProperty("declaration", out var policy))
+                throw new DeclarationRequiredException(policy.Deserialize<DeclarationPolicy>(Json)!);
             if (doc.RootElement.ValueKind == JsonValueKind.String) message = doc.RootElement.GetString()!;
             else if (doc.RootElement.TryGetProperty("message", out var m)) message = m.GetString()!;
             else if (doc.RootElement.TryGetProperty("errors", out var errors))
