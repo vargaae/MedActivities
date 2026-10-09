@@ -29,6 +29,7 @@ type Document = {
   id: string;
   title: string;
   fileName: string;
+  uploadedByName: string;
   size: number;
   canEdit: boolean;
 };
@@ -150,6 +151,7 @@ export default function PatientRecordsPanel({
       {(d) => (
         <Paper variant="outlined" key={d.id} sx={{ p: 2, bgcolor: d.id === target ? "action.selected" : undefined }}>
           <Typography fontWeight={600}>{d.title}</Typography>
+          <Typography variant="body2">Feltöltötte: {d.uploadedByName}</Typography>
           <Typography variant="body2">
             {d.fileName} · {Math.ceil(d.size / 1024)} KB
           </Typography>

@@ -76,6 +76,13 @@ public static class RegistrationWelcome
             Message = "Gratulálunk, hogy csatlakoztál az EgészségÚt világához! Megérkezett az üdvözlő eseményed az elfogadott nyilatkozattal.",
             CreatedAtUtc = acceptedAtUtc.UtcDateTime
         });
+        foreach (var admin in admins.Where(u => !u.LockoutEnabled || u.LockoutEnd is null || u.LockoutEnd <= acceptedAtUtc))
+            db.UserNotifications.Add(new UserNotification
+            {
+                UserId = admin.Id, Kind = "registration", ActivityId = activity.Id, TargetId = activity.Id,
+                Message = $"Új felhasználó regisztrált: {name.Trim()}. A regisztrációs esemény az EgészségÚt adminisztrátoraihoz tartozik.",
+                CreatedAtUtc = acceptedAtUtc.UtcDateTime
+            });
         return activity;
     }
 }

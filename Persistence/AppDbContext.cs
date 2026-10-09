@@ -17,14 +17,23 @@ public partial class AppDbContext(DbContextOptions options) : IdentityDbContext<
     public DbSet<PractitionerWorkingHours> PractitionerWorkingHours => Set<PractitionerWorkingHours>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<PatientDocument> PatientDocuments => Set<PatientDocument>();
+    public DbSet<ActivityDocument> ActivityDocuments => Set<ActivityDocument>();
     public DbSet<PatientNote> PatientNotes => Set<PatientNote>();
     public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
     public DbSet<DeletedRecord> DeletedRecords => Set<DeletedRecord>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public string? AuditUserId { get; set; }
+    // A komplex Identity-műveletek több belső mentést is végezhetnek; a vezérlő a végén egyetlen összesített értesítést hoz létre.
+    public bool SuppressNotifications { get; set; }
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
+        b.Entity<ActivityDocument>().HasOne(d => d.Activity).WithMany().HasForeignKey(d => d.ActivityId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ActivityDocument>().Property(d => d.Title).HasMaxLength(200);
+        b.Entity<ActivityDocument>().Property(d => d.FileName).HasMaxLength(255);
+        b.Entity<ActivityDocument>().Property(d => d.ContentType).HasMaxLength(100);
+        b.Entity<ActivityDocument>().Property(d => d.UploadedByName).HasMaxLength(256);
+        b.Entity<ActivityDocument>().HasIndex(d => new { d.ActivityId, d.CreatedAt });
         b.Entity<UserNotification>().HasOne<AppUser>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<UserNotification>().Property(n => n.Message).HasMaxLength(500);
         b.Entity<UserNotification>().Property(n => n.Kind).HasMaxLength(40);

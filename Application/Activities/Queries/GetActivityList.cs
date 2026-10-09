@@ -9,10 +9,14 @@ public class GetActivityList
     public class Handler(AppDbContext context) : IRequestHandler<Query,List<ActivityDto>>
     {
         public async Task<List<ActivityDto>> Handle(Query request,CancellationToken cancellationToken)
-            => await ActivityVisibility.For(context, request.UserId, request.Roles)
+        {
+            var rows = await ActivityVisibility.For(context, request.UserId, request.Roles)
                 .Where(a => request.PatientId == null || a.PatientActivities.Any(p => p.PatientId == request.PatientId))
                 .Where(a => request.PractitionerId == null || a.ActivityPractitioners.Any(p => p.PractitionerId == request.PractitionerId))
                 .AsNoTracking().OrderByDescending(a=>a.Date).ThenByDescending(a=>a.Id)
                 .Select(ActivityDto.Projection).ToListAsync(cancellationToken);
+            await ActivityDto.MarkRegistrationEvents(context, rows, cancellationToken);
+            return rows;
+        }
     }
 }

@@ -79,7 +79,7 @@ internal static class DeclarationTests
             var patient = await Post("session/register", Register("Patient", Acceptance(patientPolicy)), 201);
             var doctor = await Post("session/register", Register("Practitioner", Acceptance(staffPolicy)), 201);
             var patientLogin = await Post("session/login", new { userName = "Patient", password = secret }, 200);
-            await Post("session/login", new { userName = "Practitioner", password = secret }, 200);
+            var doctorLogin = await Post("session/login", new { userName = "Practitioner", password = secret }, 200);
             var welcomeId = patient["welcomeActivityId"]!.ToString();
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", patientLogin["accessToken"]!.ToString());
             var welcomeDetails = (await http.GetFromJsonAsync<JsonObject>("activities/" + welcomeId))!;
@@ -144,7 +144,68 @@ internal static class DeclarationTests
                         "persisted server timestamp, full name and policy fingerprint");
                 }
             }
-            Console.WriteLine($"SUCCESS: {passed} declaration checks passed against an isolated SQLite database.");
+            Check(welcomeDetails["isRegistrationEvent"]!.GetValue<bool>(), "welcome identifies administrative ownership");
+            async Task<HttpResponseMessage> Upload(string eventId, string filename = "lelet.txt", string content = "Teszt dokumentum") {
+                using var form = new MultipartFormDataContent();
+                form.Add(new StringContent("Teszt lelet"), "title");
+                form.Add(new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(content)), "file", filename);
+                return await http.PostAsync($"activities/{eventId}/documents", form);
+            }
+            using (var anonymous = await Upload(welcomeId)) Check(anonymous.StatusCode == HttpStatusCode.Unauthorized, "anonymous document upload denied");
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", patientLogin["accessToken"]!.ToString());
+            using (var forbidden = await Upload(doctor["welcomeActivityId"]!.ToString())) Check(forbidden.StatusCode == HttpStatusCode.NotFound, "other user's event upload denied");
+            using (var invalid = await Upload(welcomeId, "fake.pdf")) Check(invalid.StatusCode == HttpStatusCode.BadRequest, "fake document content rejected");
+            string documentId;
+            using (var upload = await Upload(welcomeId)) {
+                Check(upload.StatusCode == HttpStatusCode.Created, "patient uploads to read-only welcome event");
+                documentId = (await upload.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.ToString();
+            }
+            var documents = (await http.GetFromJsonAsync<JsonArray>($"activities/{welcomeId}/documents"))!;
+            Check(documents[0]!["uploadedByName"]!.ToString() == "Teszt Nyilatkozó", "document shows real uploader name");
+            using (var download = await http.GetAsync($"activities/{welcomeId}/documents/{documentId}/content"))
+                Check(download.IsSuccessStatusCode && await download.Content.ReadAsStringAsync() == "Teszt dokumentum", "authorized document download preserves content");
+            using (var db = new AppDbContext(options)) {
+                var recipients = await db.UserNotifications.Where(n => n.TargetId == documentId).Select(n => n.UserId).ToListAsync();
+                Check(recipients.Contains(patient["id"]!.ToString()), "uploader receives own document notification");
+                var adminId = await db.Users.Where(u => u.Email == "admin@declarations.invalid").Select(u => u.Id).SingleAsync();
+                Check(recipients.Contains(adminId), "admin receives welcome document notification");
+                Check(await db.UserNotifications.CountAsync(n => n.UserId == adminId && n.Kind == "registration") == 2, "admin notified of both registrations");
+                var notice = await db.UserNotifications.SingleAsync(n => n.TargetId == documentId && n.UserId == patient["id"]!.ToString());
+                Check(notice.Message == "Feltöltöttél egy dokumentumot a következő eseményhez: Üdvözlünk az EgészségÚt világában!", "uploader receives personalized document notification");
+                using var read = await http.PutAsJsonAsync($"notifications/{notice.Id}/read", new { });
+                Check((await read.Content.ReadFromJsonAsync<JsonObject>())!["url"]!.ToString() == $"/activities/{welcomeId}?document={documentId}#documents", "document notification opens exact event document");
+            }
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", doctorLogin["accessToken"]!.ToString());
+            using (var privateDownload = await http.GetAsync($"activities/{welcomeId}/documents/{documentId}/content"))
+                Check(privateDownload.StatusCode == HttpStatusCode.NotFound, "unassigned doctor cannot download private document");
+            using (var upload = await Upload(doctor["welcomeActivityId"]!.ToString()))
+                Check(upload.StatusCode == HttpStatusCode.Created, "doctor uploads to event without any patient");
+            using (var db = new AppDbContext(options)) {
+                var patientProfile = await db.Patients.SingleAsync(p => p.UserId == patient["id"]!.ToString());
+                var doctorProfile = await db.Practitioners.SingleAsync(p => p.UserId == doctor["id"]!.ToString());
+                db.AuditUserId = patientProfile.UserId;
+                var day = DateOnly.FromDateTime(DateTime.Today.AddDays(10));
+                var activity = new Domain.Activity { Title = "Teszt foglalás", Description = "Teszt", Category = "Egyéb", City = "Budapest", Venue = "Teszt", Date = day.ToDateTime(new TimeOnly(10, 0)) };
+                activity.PatientActivities.Add(new() { ActivityId = activity.Id, PatientId = patientProfile.Id });
+                activity.ActivityPractitioners.Add(new() { ActivityId = activity.Id, PractitionerId = doctorProfile.Id });
+                var booking = new Domain.Appointment { PatientId = patientProfile.Id, PractitionerId = doctorProfile.Id, ActivityId = activity.Id, Activity = activity,
+                    BookingDate = day, StartTime = activity.Date, EndTime = activity.Date.AddHours(1) };
+                db.Appointments.Add(booking); await db.SaveChangesAsync();
+                Check(await db.UserNotifications.CountAsync(n => n.TargetId == booking.Id && n.Kind == "appointment") == 2, "new booking notifies doctor and patient including actor before links persisted");
+                booking.StartTime = booking.StartTime.AddHours(1); booking.EndTime = booking.EndTime.AddHours(1);
+                await db.SaveChangesAsync();
+                Check(await db.UserNotifications.CountAsync(n => n.TargetId == booking.Id && n.Kind == "appointment") == 4, "reschedule notifies both participants");
+                booking.Status = Domain.AppointmentStatus.Cancelled; await db.SaveChangesAsync();
+                Check(await db.UserNotifications.CountAsync(n => n.TargetId == booking.Id && n.Kind == "appointment") == 6, "cancellation notifies both participants");
+                var doc = new Domain.ActivityDocument { ActivityId = activity.Id, UploadedByUserId = patientProfile.UserId!, UploadedByName = patientProfile.Name,
+                    Title = "Lelet", FileName = "lelet.txt", ContentType = "text/plain", Content = [65] };
+                db.ActivityDocuments.Add(doc); await db.SaveChangesAsync();
+                Check(await db.UserNotifications.CountAsync(n => n.TargetId == doc.Id) == 2, "event document notifies assigned doctor and patient uploader");
+                var chat = new Domain.ActivityComment { ActivityId = activity.Id, UserId = patientProfile.UserId!, DisplayName = patientProfile.Name, Body = "Kérdés" };
+                db.ActivityComments.Add(chat); await db.SaveChangesAsync();
+                Check(await db.UserNotifications.CountAsync(n => n.TargetId == chat.Id) == 2, "chat notifies assigned doctor and sender");
+            }
+            Console.WriteLine($"SUCCESS: {passed} declaration and event-document checks passed against an isolated SQLite database.");
         }
         finally {
             if (started && !process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }

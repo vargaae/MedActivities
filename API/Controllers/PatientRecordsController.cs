@@ -70,6 +70,11 @@ public class PatientRecordsController(AppDbContext db, AccessService access) : C
             .OrderByDescending(d => d.CreatedAt).Select(d => new
             {
                 d.Id, d.Title, d.FileName, d.ContentType, Size = d.Content.Length, d.CreatedAt,
+                UploadedByName = db.Patients.Where(p => p.UserId == d.UploadedByUserId).Select(p => p.Name).FirstOrDefault()
+                    ?? db.Practitioners.Where(p => p.UserId == d.UploadedByUserId).Select(p => p.Name).FirstOrDefault()
+                    ?? db.AdminProfiles.Where(p => p.UserId == d.UploadedByUserId).Select(p => p.Name).FirstOrDefault()
+                    ?? db.AdmissionsOfficeProfiles.Where(p => p.UserId == d.UploadedByUserId).Select(p => p.Name).FirstOrDefault()
+                    ?? db.Users.Where(u => u.Id == d.UploadedByUserId).Select(u => u.UserName).FirstOrDefault(),
                 CanEdit = access.Staff || d.UploadedByUserId == access.UserId
             }).ToListAsync());
     }
@@ -131,7 +136,7 @@ public class PatientRecordsController(AppDbContext db, AccessService access) : C
         db.PatientDocuments.Remove(document); await db.SaveChangesAsync(); return NoContent();
     }
 
-    private static string? ContentTypeFor(string name, byte[] bytes)
+    internal static string? ContentTypeFor(string name, byte[] bytes)
     {
         var ext = Path.GetExtension(name).ToLowerInvariant();
         if (ext == ".pdf" && bytes.AsSpan().StartsWith("%PDF-"u8)) return "application/pdf";

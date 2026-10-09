@@ -27,6 +27,7 @@ public class GetActivityPage
                 .OrderByDescending(a => a.Date).ThenByDescending(a => a.Id)
                 .Skip((page - 1) * request.PageSize).Take(request.PageSize)
                 .Select(ActivityDto.Projection).ToListAsync(ct);
+            await ActivityDto.MarkRegistrationEvents(context, rows, ct);
             return new(rows, page * request.PageSize < total ? page + 1 : null, total, page, request.PageSize);
         }
     }

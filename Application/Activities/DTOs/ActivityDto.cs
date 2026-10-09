@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
 using Domain;
+using Microsoft.EntityFrameworkCore;
+using Persistence;
 namespace Application.Activities.DTOs;
 
 public class ActivityPersonDto
@@ -24,9 +26,18 @@ public class ActivityDto
     public bool CanEditFields { get; set; }
     public bool CanEditAssignments { get; set; }
     public bool IsAppointment { get; set; }
+    public bool IsRegistrationEvent { get; set; }
     public string Status { get; set; } = "";
     public List<ActivityPersonDto> Patients { get; set; } = [];
     public List<ActivityPersonDto> Practitioners { get; set; } = [];
+    public static async Task MarkRegistrationEvents(AppDbContext db, List<ActivityDto> activities, CancellationToken ct)
+    {
+        var ids = activities.Select(a => a.Id).ToArray();
+        var welcomeIds = await db.UserNotifications
+            .Where(n => n.Kind == "welcome" && n.ActivityId != null && ids.Contains(n.ActivityId))
+            .Select(n => n.ActivityId!).Distinct().ToListAsync(ct);
+        foreach (var activity in activities) activity.IsRegistrationEvent = welcomeIds.Contains(activity.Id);
+    }
 
     public static Expression<Func<Activity, ActivityDto>> Projection => a => new ActivityDto
     {

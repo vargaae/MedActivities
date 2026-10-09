@@ -64,6 +64,7 @@ public class ActivitiesController(AppDbContext db, AccessService access, IWebHos
         var dto=await Visible().AsNoTracking().Where(a=>a.Id==id).Select(ActivityDto.Projection).SingleOrDefaultAsync(ct);
         if(dto is null)return NotFound();
         dto.IsAppointment=await db.Appointments.AnyAsync(a=>a.ActivityId==id,ct);
+        dto.IsRegistrationEvent=await db.UserNotifications.AnyAsync(n=>n.ActivityId==id && n.Kind=="welcome",ct);
         dto.CanEditFields=Authenticated && (access.Staff || (!dto.IsAppointment &&
             await access.EditableActivities().AnyAsync(a => a.Id == id, ct)));
         dto.CanDelete=Authenticated && access.Staff;

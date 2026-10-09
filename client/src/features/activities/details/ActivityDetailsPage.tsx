@@ -5,6 +5,7 @@ import ActivityDetailsChat from "./ActivityDetailsChat";
 import ActivityDetailsHeader from "./ActivityDetailsHeader";
 import ActivityDetailsInfo from "./ActivityDetailsInfo";
 import ActivityDetailsSidebar from "./ActivityDetailsSidebar";
+import ActivityDocuments from "./ActivityDocuments";
 
 export default function ActivityDetailsPage() {
     const {id} = useParams();
@@ -19,6 +20,7 @@ export default function ActivityDetailsPage() {
             <Grid size={{ xs: 12, lg: 8 }}>
                 <ActivityDetailsHeader activity={activity}  />
                 <ActivityDetailsInfo activity={activity}  />
+                <ActivityDocuments key={activity.id} activityId={activity.id} />
                 <ActivityDetailsChat activityId={activity.id} />
             </Grid>
             <Grid size={{ xs: 12, lg: 4 }}>

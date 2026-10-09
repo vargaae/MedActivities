@@ -15,6 +15,8 @@ type Activity = {
   canEditFields: boolean;
   canEditAssignments: boolean;
   isAppointment: boolean;
+  isRegistrationEvent?: boolean;
+  isRegistrationEvent?: boolean;
   status: string;
   patients: ActivityPerson[];
   practitioners: ActivityPerson[];

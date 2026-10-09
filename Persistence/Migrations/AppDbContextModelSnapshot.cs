@@ -111,6 +111,53 @@ namespace Persistence.Migrations
                     b.ToTable("ActivityComments");
                 });
 
+            modelBuilder.Entity("Domain.ActivityDocument", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ActivityId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UploadedByName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UploadedByUserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId", "CreatedAt");
+
+                    b.ToTable("ActivityDocuments");
+                });
+
             modelBuilder.Entity("Domain.ActivityPractitioner", b =>
                 {
                     b.Property<string>("PractitionerId")
@@ -742,6 +789,17 @@ namespace Persistence.Migrations
                 });
 
             modelBuilder.Entity("Domain.ActivityComment", b =>
+                {
+                    b.HasOne("Domain.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
+                });
+
+            modelBuilder.Entity("Domain.ActivityDocument", b =>
                 {
                     b.HasOne("Domain.Activity", "Activity")
                         .WithMany()

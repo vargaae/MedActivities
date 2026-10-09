@@ -74,6 +74,7 @@ export default function ActivityCard({ activity }: { activity: Activity }) {
             >
               {activity.title}
             </Typography>
+            {activity.isRegistrationEvent && <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Felelős: EgészségÚt ADMIN</Typography>}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <AccessTime fontSize="small" color="action" />
               <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>

@@ -30,6 +30,8 @@ export default function ActivityDetailsHeader({ activity }: { activity: Activity
         <Chip label={image.label} sx={{ alignSelf: 'flex-start', mb: 1, bgcolor: 'rgba(255,255,255,.9)' }} />
         <Typography variant="h4" sx={{ fontSize: { xs: "1.55rem", sm: "2.125rem" }, overflowWrap: "anywhere" }}>{activity.title}</Typography>
         <Typography sx={{ my: 1 }}>{formatDate(activity.date)}</Typography>
+        {activity.isRegistrationEvent && <Typography fontWeight={600}>Regisztrációs esemény · Felelős: EgészségÚt ADMIN</Typography>}
+        {activity.isRegistrationEvent && <Typography fontWeight={600}>Regisztrációs esemény · Felelős: EgészségÚt ADMIN (adminisztrátorok)</Typography>}
         {!!activity.practitioners?.length && <Typography>Kezelőorvos: {activity.practitioners.map(p => p.name).join(', ')}</Typography>}
         </Box>
         <Box sx={{ px: { xs: 2, sm: 3 }, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>

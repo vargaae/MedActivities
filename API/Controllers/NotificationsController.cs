@@ -31,11 +31,12 @@ public class NotificationsController(AppDbContext db, AccessService access) : Co
         var notification = await db.UserNotifications.SingleOrDefaultAsync(n => n.Id == id && n.UserId == access.UserId, ct);
         if (notification is null) return NotFound();
         string? url = null;
-        if (notification.Kind == "appointment-confirmation")
+        if (notification.Kind == "appointment-confirmation" && await access.Appointments().AnyAsync(a => a.Id == notification.TargetId, ct))
             url = "/booking?appointmentId=" + Uri.EscapeDataString(notification.TargetId ?? "");
         else if (notification.ActivityId is { } activityId && await access.Activities().AnyAsync(a => a.Id == activityId, ct))
             url = "/activities/" + Uri.EscapeDataString(activityId) +
-                (notification.Kind == "comment" ? "?comment=" + Uri.EscapeDataString(notification.TargetId ?? "") + "#chat" : "");
+                (notification.Kind == "comment" ? "?comment=" + Uri.EscapeDataString(notification.TargetId ?? "") + "#chat"
+                : notification.Kind == "activity-document" ? "?document=" + Uri.EscapeDataString(notification.TargetId ?? "") + "#documents" : "");
         else if (notification.PatientId is { } patientId && await access.Patients().AnyAsync(p => p.Id == patientId, ct))
             url = "/health-records?patientId=" + Uri.EscapeDataString(patientId) + "&target=" + Uri.EscapeDataString(notification.TargetId ?? "") +
                 (notification.Kind == "document" ? "#documents" : notification.Kind == "note" ? "#notes" : "#profile");
